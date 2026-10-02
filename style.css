@@ -16,6 +16,9 @@ body {
   font-family: Georgia, "Times New Roman", serif;
   touch-action: none;
 }
+body.modal-open {
+  touch-action: auto;
+}
 button,
 input,
 select {
@@ -479,6 +482,8 @@ header {
   display: grid;
   place-items: center;
   z-index: 20;
+  overscroll-behavior: contain;
+  touch-action: auto;
 }
 .paper {
   position: relative;
@@ -490,7 +495,9 @@ header {
   max-height: 88vh;
   overflow-y: auto;
   padding: 34px 38px;
-  touch-action: pan-y;
+  touch-action: pan-y pinch-zoom;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 #closeModal {
   position: absolute;
@@ -1890,7 +1897,9 @@ body.touch #toolbelt {
   min-height: 0;
   overflow: auto;
   padding: 30px 36px 42px;
-  touch-action: pan-y;
+  touch-action: pan-y pinch-zoom;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   position: relative;
   z-index: 1;
 }
@@ -2953,6 +2962,76 @@ body.touch #toolbelt {
   .menu-footer-action { align-items: stretch; flex-direction: column; }
   .paper.story-dialog { padding: 27px 20px 25px; }
   .paper.story-dialog h2 { font-size: 30px; }
+}
+
+@media (pointer: coarse) and (orientation: landscape) {
+  #modal { align-items: stretch; }
+  .paper.journal-paper {
+    width: calc(100vw - 4px);
+    height: calc(100dvh - 4px);
+    max-height: calc(100dvh - 4px);
+    border-radius: 14px;
+  }
+  .journal-sidebar {
+    padding: 8px 42px 7px 8px;
+    gap: 6px;
+  }
+  .journal-brand {
+    padding-right: 4px;
+  }
+  .journal-sigil { width: 28px; height: 28px; font-size: 20px; border-radius: 8px; }
+  .journal-brand small { font-size: 5px; max-width: 60px; }
+  .journal-nav { gap: 2px; }
+  .journal-nav button {
+    min-width: 34px;
+    min-height: 34px;
+    padding: 5px 6px;
+    border-radius: 9px;
+  }
+  .tab-icon { width: 18px; height: 18px; }
+  #modal .journal-paper #closeModal {
+    top: 6px;
+    right: 6px;
+    width: 32px;
+    height: 32px;
+  }
+  .journal-page-header {
+    min-height: 60px;
+    padding: 12px 14px 10px;
+    gap: 12px;
+  }
+  .journal-page-header .eyebrow { margin-bottom: 4px; }
+  .journal-page-header h2 { font-size: clamp(22px, 4.6vw, 28px); }
+  .journal-content { padding: 12px 12px 18px; }
+  .menu-lead {
+    display: grid;
+    grid-template-columns: minmax(0,1fr) auto;
+    align-items: end;
+    gap: 10px;
+    padding-bottom: 12px;
+    margin-bottom: 12px;
+  }
+  .menu-lead h3 { font-size: 18px; line-height: 1.08; }
+  .menu-lead p { font-size: 10px; line-height: 1.45; }
+  .menu-stat {
+    margin-left: 0;
+    min-width: 62px;
+    padding: 7px 8px;
+    border-radius: 11px;
+  }
+  .menu-stat b { font-size: 16px; }
+  .inventory-summary > div { padding: 7px; }
+  .object-grid { gap: 7px; }
+  .object-card { padding: 8px; }
+  .companion-card { padding: 10px; }
+  .creature-heading .creature-portrait3d,
+  .creature-portrait3d.companion { width: 72px; height: 62px; }
+  .bestiary-card { grid-template-columns: 88px minmax(0,1fr); }
+  .bestiary-portrait { min-height: 134px; padding-top: 16px; }
+  .bestiary-card .creature-portrait3d { width: 80px; height: 92px; }
+  .bestiary-info { padding: 12px 10px 10px; }
+  .bestiary-info h3 { font-size: 19px; }
+  .menu-footer-action { gap: 8px; }
 }
 
 @media (max-height: 590px) {
