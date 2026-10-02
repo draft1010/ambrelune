@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"
+    />
+    <meta name="theme-color" content="#244d46" />
+    <meta
+      name="description"
+      content="Un RPG original de créatures, de jardins et d'exploration. Les Jardins d’Ambrelune."
+    />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./assets/icon.svg" />
+    <link rel="stylesheet" href="./style.css" />
+    <title>Les Jardins d’Ambrelune</title>
+  </head>
+  <body>
+    <canvas
+      id="world"
+      tabindex="0"
+      aria-label="Monde d’Ambrelune. Déplacement ZQSD ou flèches, E pour interagir."
+    ></canvas>
+    <div id="loading">
+      <span class="sigil">❧</span>
+      <h1>Ambrelune</h1>
+      <p>Les jardins s’éveillent…</p>
+    </div>
+    <main id="hud" hidden>
+      <header>
+        <div class="brand">
+          <span>❧</span>
+          <div>AMBRELUNE<small id="region">Les terrasses d’Ambre</small></div>
+        </div>
+        <div class="timecard">
+          <span id="weatherIcon">☀</span>
+          <div id="clock">08:00</div>
+          <small id="calendar">Printemps · Jour 1</small>
+        </div>
+        <button id="menuBtn" title="Carnet · Tab">
+          ☷ <span>Carnet</span>
+        </button>
+      </header>
+      <aside class="quest">
+        <small>LE FIL DES JARDINS</small>
+        <h3 id="questTitle"></h3>
+        <p id="questText"></p>
+        <div class="progress"><i id="questProgress"></i></div>
+      </aside>
+      <button id="mapBtn" aria-label="Ouvrir la carte">
+        <canvas id="minimap" width="176" height="176"></canvas
+        ><span>CARTE <kbd>M</kbd></span>
+      </button>
+      <div id="companion">
+        <span id="companionIcon"></span>
+        <div><b id="companionName"></b><small id="companionInfo"></small></div>
+        <span id="coins"></span>
+      </div>
+      <div id="toast" role="status"></div>
+      <div id="locationBanner"></div>
+      <div id="interaction">
+        <span id="hint"></span
+        ><button id="actBtn">Interagir <kbd>E</kbd></button>
+      </div>
+      <nav id="toolbelt" aria-label="Outils"></nav>
+      <div class="keyhelp">
+        ZQSD / WASD · Se déplacer &nbsp; | &nbsp; Clic · Marcher &nbsp; | &nbsp;
+        Molette · Zoom &nbsp; | &nbsp; Clic droit · Caméra
+      </div>
+      <div id="joystick" aria-label="Joystick de déplacement"><i></i></div>
+      <div id="cameraPad" aria-label="Zone tactile de rotation de caméra">
+        ↔
+      </div>
+      <button id="runBtn" class="touchAction">Courir</button>
+      <div id="buildbar" hidden>
+        <b id="buildlabel"></b><button id="rotateBtn">↻ Tourner · R</button
+        ><button id="placeBtn">Placer</button
+        ><button id="cancelBuild">Annuler</button>
+      </div>
+    </main>
+    <section id="intro" hidden>
+      <div class="introCopy">
+        <span class="eyebrow">UN MONDE À APPRIVOISER</span>
+        <h1>Les Jardins<br />d’<em>Ambrelune</em></h1>
+        <p>
+          Une maison oubliée. Des jardins qui murmurent.<br />Et un petit
+          compagnon pour tout recommencer.
+        </p>
+        <button class="primary" id="newBtn">
+          Commencer l’aventure <span>↗</span></button
+        ><button id="continueBtn" hidden>Reprendre mon voyage</button
+        ><small>EXPLORATION · CRÉATURES · VIE AU JARDIN</small>
+      </div>
+      <div class="edition">PREMIÈRE RÉGION <i></i> Les terres de la Sève</div>
+    </section>
+    <div id="modal" hidden>
+      <section
+        class="paper"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Carnet d’Ambrelune"
+      >
+        <button id="closeModal" aria-label="Fermer">×</button>
+        <div id="modalContent"></div>
+      </section>
+    </div>
+    <section id="battle" hidden>
+      <div class="battleHeading">
+        <small>UNE RENCONTRE SAUVAGE</small>
+        <h2 id="enemyName"></h2>
+        <p id="battleBiome"></p>
+      </div>
+      <div class="battleStats enemy">
+        <b id="enemyStat"></b>
+        <div id="enemyGauges"></div>
+        <small id="enemyStatus"></small>
+      </div>
+      <div class="battleStats ally">
+        <b id="allyStat"></b>
+        <div id="allyGauges"></div>
+        <small id="allyEnergy"></small>
+      </div>
+      <div class="battleBottom">
+        <p id="battleLog" role="status"></p>
+        <div id="battleActions"></div>
+      </div>
+    </section>
+    <pre id="debug" hidden></pre>
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>
