@@ -3068,3 +3068,98 @@ body.touch #toolbelt {
   .object-figure { min-height: 68px; }
   .item-art { height: 62px; width: 67px; }
 }
+
+
+/* ===== Mobile landscape V4: robust full-sheet scrolling ===== */
+@media (pointer: coarse) and (orientation: landscape) {
+  #modal {
+    position: fixed;
+    inset: 0;
+    display: block;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+    touch-action: pan-y pinch-zoom;
+    padding: 2px;
+  }
+
+  #modal .paper.journal-paper {
+    position: relative;
+    width: 100%;
+    height: auto;
+    min-height: calc(100dvh - 4px);
+    max-height: none;
+    margin: 0;
+    overflow: visible;
+    border-radius: 14px;
+    touch-action: pan-y pinch-zoom;
+  }
+
+  #modal .journal-shell {
+    display: block;
+    width: 100%;
+    height: auto;
+    min-height: calc(100dvh - 4px);
+    overflow: visible;
+  }
+
+  #modal .journal-sidebar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    min-height: 0;
+    overflow: visible;
+    padding: 8px 44px 7px 8px;
+    gap: 6px;
+    box-shadow: 0 5px 14px rgba(5, 27, 23, .16);
+  }
+
+  #modal .journal-page {
+    display: block;
+    width: 100%;
+    min-height: 0;
+    overflow: visible;
+  }
+
+  #modal .journal-page-header {
+    position: relative;
+    min-height: 60px;
+    padding: 11px 14px 9px;
+  }
+
+  #modal .journal-content {
+    min-height: 0;
+    height: auto;
+    overflow: visible;
+    padding: 12px 12px 26px;
+    touch-action: auto;
+  }
+
+  #modal .journal-nav {
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-x;
+  }
+
+  #modal .journal-brand {
+    align-self: center;
+  }
+
+  #modal .journal-paper #closeModal {
+    position: fixed;
+    top: 6px;
+    right: 8px;
+    z-index: 50;
+  }
+
+  #modal .menu-lead {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 10px;
+  }
+}
