@@ -1,4 +1,4 @@
-const CACHE = "ambrelune-v1.2.0";
+const CACHE = "ambrelune-v1.3.0-monsters";
 const FILES = [
   "./",
   "./index.html",
@@ -10,6 +10,7 @@ const FILES = [
   "./src/main.js",
   "./src/rendering/art.js",
   "./src/rendering/battle-stage.js",
+  "./src/rendering/monster-models.js",
   "./src/rendering/icons.js",
   "./src/rendering/journal-ui.js",
   "./src/world/world.js",
@@ -22,7 +23,16 @@ const FILES = [
   "./src/rendering/village.js",
   "./vendor/three.module.js",
   "./vendor/three.core.js",
+  "./assets/monsters/velune.gltf",
+  "./assets/monsters/ondril.gltf",
+  "./assets/monsters/brasile.gltf",
+  "./assets/monsters/moussier.gltf",
+  "./assets/monsters/vrille.gltf",
+  "./assets/monsters/lumignon.gltf",
+  "./assets/monsters/coralys.gltf",
+  "./assets/monsters/gardien.gltf",
 ];
+
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches
@@ -31,6 +41,7 @@ self.addEventListener("install", (event) => {
       .then(() => self.skipWaiting()),
   );
 });
+
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches
@@ -45,12 +56,14 @@ self.addEventListener("activate", (event) => {
       .then(() => self.clients.claim()),
   );
 });
+
 self.addEventListener("fetch", (event) => {
   if (
     event.request.method !== "GET" ||
     new URL(event.request.url).origin !== self.location.origin
   )
     return;
+
   event.respondWith(
     fetch(event.request)
       .then((response) => {

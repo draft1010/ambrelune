@@ -139,6 +139,7 @@ export function farmAction(s, p, tool) {
       s.stats.harvested++;
       p.stage = 0;
       p.growth = 0;
+      p.water = 0;
       p.fertilized = false;
       return "Roselle récoltée · +1 graine";
     }

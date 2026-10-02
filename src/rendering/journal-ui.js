@@ -2,9 +2,9 @@ import {
   ITEMS,
   RECIPES,
   species,
-  portrait,
   ELEMENT_NAMES,
 } from "../systems/data.js";
+import { creaturePortrait3D } from "./creature-preview.js";
 const drawings = {
   wood: '<path fill="#986845" d="m22 50 39-22 39 24-39 25z"/><path fill="#bc895a" d="M22 50v24l39 22V77z"/><path fill="#79533e" d="m61 77 39-25v23L61 96z"/><ellipse fill="#e1bb83" cx="41" cy="68" rx="16" ry="11" transform="rotate(30 41 68)"/><ellipse fill="none" cx="41" cy="68" rx="9" ry="6" transform="rotate(30 41 68)"/><path d="m62 43 24 12m-30-5 18 10"/>',
   stone:
@@ -52,7 +52,7 @@ export function gauge(kind, value, max, label = kind.toUpperCase()) {
   return `<div class="stat-gauge ${tone}"><div class="gauge-label"><span>${label}</span><span>${v} / ${max}</span></div><div class="gauge-track" role="progressbar" aria-label="${label}" aria-valuemin="0" aria-valuemax="${max}" aria-valuenow="${v}"><i style="width:${pct}%"></i></div></div>`;
 }
 export function teamView(state) {
-  return `<p>Vos compagnons de voyage. Choisissez qui vous accompagne ou vous aide au jardin.</p><div class="companion-grid">${state.team.map((c, i) => `<article class="companion-card"><div class="creature-heading">${portrait(c.id)}<div><h3>${species(c.id).name}</h3><small>Niveau ${c.level} · ${ELEMENT_NAMES[species(c.id).element]}</small></div></div>${gauge("pv", c.hp, c.maxHp)}${gauge("xp", c.xp, c.level * 20)}<div class="card-actions"><button data-lead="${i}" ${i === 0 ? "disabled" : ""}>${i === 0 ? "En tête" : "Accompagner"}</button><button data-heal="${i}" ${!state.inventory.potion || c.hp === c.maxHp ? "disabled" : ""}>Soigner</button></div></article>`).join("")}</div><p><button id="helper">${state.flags.helper ? "Rappeler mon compagnon" : "Affecter mon compagnon au jardin"}</button></p><small>${species(state.team[0].id).job || "Ce compagnon veille sur les cultures."}</small>`;
+  return `<p>Vos compagnons de voyage. Choisissez qui vous accompagne ou vous aide au jardin.</p><div class="companion-grid">${state.team.map((c, i) => `<article class="companion-card"><div class="creature-heading">${creaturePortrait3D(c.id, "companion")}<div><h3>${species(c.id).name}</h3><small>Niveau ${c.level} · ${ELEMENT_NAMES[species(c.id).element]}</small></div></div>${gauge("pv", c.hp, c.maxHp)}${gauge("xp", c.xp, c.level * 20)}<div class="card-actions"><button data-lead="${i}" ${i === 0 ? "disabled" : ""}>${i === 0 ? "En tête" : "Accompagner"}</button><button data-heal="${i}" ${!state.inventory.potion || c.hp === c.maxHp ? "disabled" : ""}>Soigner</button></div></article>`).join("")}</div><p><button id="helper">${state.flags.helper ? "Rappeler mon compagnon" : "Affecter mon compagnon au jardin"}</button></p><small>${species(state.team[0].id).job || "Ce compagnon veille sur les cultures."}</small>`;
 }
 const figure = (id, name, count) =>
   `<div class="object-figure">${itemArt(id)}${count !== undefined ? `<span class="item-count">× ${count}</span>` : ""}</div><h3 class="object-name">${name || ITEMS[id]}</h3>`;

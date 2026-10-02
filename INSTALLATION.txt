@@ -1,0 +1,35 @@
+AMBRELUNE - MONSTRES 3D / COMBATS ANIMES - PHASE 1
+
+Cette phase remplace les deux combattants dans la scène de combat par les modèles riggés du pack Quaternius, avec fallback automatique vers les anciens monstres si un modèle ne charge pas.
+
+A uploader à la racine du dépôt GitHub en conservant exactement les chemins :
+
+index.html
+sw.js
+src/rendering/battle-stage.js
+src/rendering/monster-models.js
+assets/monsters/velune.gltf
+assets/monsters/ondril.gltf
+assets/monsters/brasile.gltf
+assets/monsters/moussier.gltf
+assets/monsters/vrille.gltf
+assets/monsters/lumignon.gltf
+assets/monsters/coralys.gltf
+assets/monsters/gardien.gltf
+
+Correspondances temporaires :
+Vélune -> Mushnub
+Ondril -> Glub
+Brasîle -> Cat
+Moussier -> Cactoro
+Vrillevent -> Pigeon
+Lumignon -> Ghost
+Coralys -> Squidle
+Veilleur de Sève -> MushroomKing
+
+Après le commit GitHub : attendre GitHub Pages, puis Ctrl+F5.
+Le premier combat peut prendre un court instant à charger la première fois.
+
+Le jeu reste fonctionnel si le CDN du GLTFLoader ou un modèle ne charge pas : les anciens monstres procéduraux servent de fallback.
+
+Licence des modèles : Ultimate Platformer Pack by Quaternius, CC0 1.0.
