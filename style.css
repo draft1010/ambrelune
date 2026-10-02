@@ -3163,3 +3163,40 @@ body.touch #toolbelt {
     gap: 10px;
   }
 }
+
+
+/* ===== Mobile V5: restore touch toolbelt ===== */
+@media (pointer: coarse) {
+  #toolbelt {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    position: fixed;
+    left: 50%;
+    right: auto;
+    bottom: max(10px, env(safe-area-inset-bottom));
+    transform: translateX(-50%);
+    z-index: 18;
+    max-width: calc(100vw - 300px);
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-x;
+  }
+  #toolbelt::-webkit-scrollbar { display: none; }
+  #toolbelt .tool {
+    flex: 0 0 auto;
+    width: 42px;
+    height: 42px;
+    padding: 4px;
+  }
+  #toolbelt .tool span { display: none; }
+}
+@media (pointer: coarse) and (orientation: landscape) {
+  #toolbelt {
+    bottom: max(8px, env(safe-area-inset-bottom));
+    max-width: min(520px, calc(100vw - 420px));
+  }
+  #toolbelt .tool { width: 40px; height: 40px; }
+}
