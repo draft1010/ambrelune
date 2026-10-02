@@ -195,6 +195,7 @@ function showModal(html, closable = true) {
   paper?.classList.toggle("story-dialog", !html.includes('class="journal-shell"'));
   $("modalContent").innerHTML = html;
   $("modal").hidden = false;
+  document.body.classList.add("modal-open");
   $("closeModal").hidden = !closable;
   input.target = null;
   input.keys.clear();
@@ -203,6 +204,7 @@ function showModal(html, closable = true) {
 function closeModal() {
   clearCreaturePortraits();
   $("modal").hidden = true;
+  document.body.classList.remove("modal-open");
   input.keys.clear();
   canvas.focus();
 }
