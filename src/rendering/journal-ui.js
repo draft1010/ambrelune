@@ -39,8 +39,8 @@ export function itemArt(id) {
   return `<svg class="item-art" viewBox="0 0 120 112" role="img" aria-label="${ITEMS[id] || id}"><ellipse cx="60" cy="98" rx="39" ry="6" fill="#42634e14"/><g stroke="#4b5746" stroke-width="2" stroke-linejoin="round" stroke-linecap="round">${drawings[id] || drawings.seed}</g></svg>`;
 }
 export function gauge(kind, value, max, label = kind.toUpperCase()) {
-  const v = Math.max(0, Math.min(max, Number(value) || 0)),
-    pct = max > 0 ? (v / max) * 100 : 0;
+  const v = Math.max(0, Math.min(max, Number(value) || 0));
+  const pct = max > 0 ? (v / max) * 100 : 0;
   const tone =
     kind === "pv"
       ? pct <= 25
@@ -51,37 +51,80 @@ export function gauge(kind, value, max, label = kind.toUpperCase()) {
       : kind;
   return `<div class="stat-gauge ${tone}"><div class="gauge-label"><span>${label}</span><span>${v} / ${max}</span></div><div class="gauge-track" role="progressbar" aria-label="${label}" aria-valuemin="0" aria-valuemax="${max}" aria-valuenow="${v}"><i style="width:${pct}%"></i></div></div>`;
 }
-export function teamView(state) {
-  return `<p>Vos compagnons de voyage. Choisissez qui vous accompagne ou vous aide au jardin.</p><div class="companion-grid">${state.team.map((c, i) => `<article class="companion-card"><div class="creature-heading">${creaturePortrait3D(c.id, "companion")}<div><h3>${species(c.id).name}</h3><small>Niveau ${c.level} · ${ELEMENT_NAMES[species(c.id).element]}</small></div></div>${gauge("pv", c.hp, c.maxHp)}${gauge("xp", c.xp, c.level * 20)}<div class="card-actions"><button data-lead="${i}" ${i === 0 ? "disabled" : ""}>${i === 0 ? "En tête" : "Accompagner"}</button><button data-heal="${i}" ${!state.inventory.potion || c.hp === c.maxHp ? "disabled" : ""}>Soigner</button></div></article>`).join("")}</div><p><button id="helper">${state.flags.helper ? "Rappeler mon compagnon" : "Affecter mon compagnon au jardin"}</button></p><small>${species(state.team[0].id).job || "Ce compagnon veille sur les cultures."}</small>`;
-}
+
+const ITEM_META = {
+  wood: ["Ressource", "Bois brut récolté dans les bosquets d’Ambrelune."],
+  stone: ["Ressource", "Pierre solide pour les ouvrages du jardin."],
+  fiber: ["Ressource", "Fibres souples utilisées dans les tissages."],
+  crystal: ["Rare", "Cristal chargé de sève, utile aux créations de résonance."],
+  seed: ["Culture", "Graines prêtes à être semées dans votre potager."],
+  crop: ["Récolte", "Roselles fraîches, utiles au marché et aux tisanes."],
+  quality: ["Récolte rare", "Roselles dorées d’une qualité exceptionnelle."],
+  seal: ["Lien", "Tissage lumineux permettant d’approcher une créature."],
+  potion: ["Soin", "Tisane revigorante pour vos compagnons."],
+  fish: ["Pêche", "Une truite ambrée pêchée dans la rivière."],
+  plank: ["Matériau", "Planche travaillée prête pour l’artisanat."],
+  lamp: ["Aménagement", "Une lanterne chaleureuse pour votre propriété."],
+  fence: ["Aménagement", "Clôture tressée pour dessiner les contours du jardin."],
+  bench: ["Aménagement", "Banc de jardin façonné en bois et pierre."],
+  bed: ["Aménagement", "Jardinière décorative généreusement fleurie."],
+  workbench: ["Atelier", "Établi de campagne pour votre terrain."],
+  fertilizer: ["Culture", "Compost qui aide les cultures à donner le meilleur d’elles-mêmes."],
+};
+
+const ITEM_SECTIONS = [
+  ["Ressources", ["wood", "stone", "fiber", "crystal", "plank"]],
+  ["Culture & récoltes", ["seed", "crop", "quality", "fertilizer", "fish"]],
+  ["Objets utiles", ["seal", "potion"]],
+  ["Aménagements", ["lamp", "fence", "bench", "bed", "workbench"]],
+];
+
 const figure = (id, name, count) =>
-  `<div class="object-figure">${itemArt(id)}${count !== undefined ? `<span class="item-count">× ${count}</span>` : ""}</div><h3 class="object-name">${name || ITEMS[id]}</h3>`;
+  `<div class="object-figure">${itemArt(id)}${count !== undefined ? `<span class="item-count">${count}</span>` : ""}</div><div class="object-copy"><span class="object-kicker">${ITEM_META[id]?.[0] || "Objet"}</span><h3 class="object-name">${name || ITEMS[id]}</h3></div>`;
+
+export function teamView(state) {
+  return `<div class="menu-lead"><div><span class="section-kicker">ÉQUIPE ACTIVE</span><h3>Vos compagnons de voyage</h3><p>Gérez l’ordre de votre équipe, surveillez leur progression et choisissez qui vous accompagne au jardin.</p></div><div class="menu-stat"><small>COMPAGNONS</small><b>${state.team.length}</b></div></div><div class="companion-grid">${state.team
+    .map((c, i) => {
+      const sp = species(c.id);
+      return `<article class="companion-card" style="--species:${sp.color};--species-accent:${sp.accent}"><div class="companion-rank">${i === 0 ? "ACTIF" : `N° ${i + 1}`}</div><div class="creature-heading">${creaturePortrait3D(c.id, "companion")}<div><span class="element-chip">${ELEMENT_NAMES[sp.element]}</span><h3>${sp.name}</h3><small>Niveau ${c.level} · ${sp.temper}</small></div></div><p class="companion-role">${sp.job || sp.desc}</p>${gauge("pv", c.hp, c.maxHp)}${gauge("xp", c.xp, c.level * 20)}<div class="card-actions"><button data-lead="${i}" ${i === 0 ? "disabled" : ""}>${i === 0 ? "En tête" : "Mettre en tête"}</button><button data-heal="${i}" ${!state.inventory.potion || c.hp === c.maxHp ? "disabled" : ""}>Soigner</button></div></article>`;
+    })
+    .join("")}</div><div class="menu-footer-action"><div><span class="section-kicker">AIDE AU JARDIN</span><p>${species(state.team[0].id).job || "Ce compagnon veille sur les cultures."}</p></div><button id="helper" class="premium-action">${state.flags.helper ? "Rappeler mon compagnon" : "L’affecter au jardin"}</button></div>`;
+}
+
 export function bagView(state) {
-  return `<p>${state.coins} ambres · Vos trouvailles et vos créations.</p><div class="object-grid bag-grid">${Object.entries(
-    state.inventory,
-  )
-    .filter(([, n]) => n > 0)
-    .map(
-      ([id, n]) =>
-        `<article class="object-card">${figure(id, null, n)}</article>`,
-    )
-    .join("")}</div>`;
-}
-export function craftView(state, canAfford) {
-  return `<p>Choisissez une création. Sous chaque ingrédient : votre stock / le coût.</p><div class="object-grid recipe-grid">${RECIPES.map(
-    (r) =>
-      `<article class="object-card recipe-card">${figure(r.id, r.name, r.count)}<p class="object-description">${r.desc}</p><div class="ingredients">${Object.entries(
-        r.cost,
+  const entries = Object.entries(state.inventory).filter(([, n]) => n > 0);
+  const total = entries.reduce((sum, [, n]) => sum + n, 0);
+  const sections = ITEM_SECTIONS.map(([title, ids]) => {
+    const items = ids.filter((id) => (state.inventory[id] || 0) > 0);
+    if (!items.length) return "";
+    return `<section class="inventory-section"><div class="inventory-section-title"><span>${title}</span><small>${items.reduce((s, id) => s + (state.inventory[id] || 0), 0)} objet(s)</small></div><div class="object-grid bag-grid">${items
+      .map(
+        (id) =>
+          `<article class="object-card inventory-card">${figure(id, null, state.inventory[id])}<p class="object-description">${ITEM_META[id]?.[1] || "Objet conservé dans votre sac."}</p></article>`,
       )
-        .map(
-          ([id, n]) =>
-            `<div class="ingredient ${(state.inventory[id] || 0) < n ? "missing" : ""}" title="${ITEMS[id]} : ${state.inventory[id] || 0} disponibles, ${n} nécessaires">${itemArt(id)}<small>${ITEMS[id]}</small><b>${state.inventory[id] || 0} / ${n}</b></div>`,
-        )
-        .join(
-          "",
-        )}</div><button data-craft="${r.id}" aria-label="Fabriquer ${r.name}" ${!canAfford(state, r.cost) ? "disabled" : ""}>Fabriquer</button></article>`,
-  ).join("")}</div>`;
+      .join("")}</div></section>`;
+  }).join("");
+  return `<div class="menu-lead"><div><span class="section-kicker">INVENTAIRE</span><h3>Le sac d’Ambrelune</h3><p>Tout ce que vous récoltez, fabriquez ou trouvez pendant votre voyage est rangé ici.</p></div><div class="inventory-summary"><div><small>OBJETS</small><b>${total}</b></div><div><small>AMBRES</small><b>◈ ${state.coins}</b></div></div></div>${sections || '<div class="empty premium-empty"><b>Votre sac est vide.</b><span>Explorez les jardins pour récolter vos premières ressources.</span></div>'}`;
 }
+
+export function craftView(state, canAfford) {
+  return `<div class="menu-lead"><div><span class="section-kicker">ATELIER</span><h3>Façonner, tisser, construire</h3><p>Chaque création indique votre stock réel et les ressources nécessaires.</p></div><div class="menu-stat"><small>RECETTES</small><b>${RECIPES.length}</b></div></div><div class="object-grid recipe-grid">${RECIPES.map((r) => {
+    const ready = canAfford(state, r.cost);
+    return `<article class="object-card recipe-card ${ready ? "recipe-ready" : ""}"><div class="recipe-state">${ready ? "PRÊT" : "RESSOURCES MANQUANTES"}</div>${figure(r.id, r.name, r.count)}<p class="object-description">${r.desc}</p><div class="ingredients">${Object.entries(r.cost)
+      .map(
+        ([id, n]) =>
+          `<div class="ingredient ${(state.inventory[id] || 0) < n ? "missing" : ""}" title="${ITEMS[id]} : ${state.inventory[id] || 0} disponibles, ${n} nécessaires">${itemArt(id)}<small>${ITEMS[id]}</small><b>${state.inventory[id] || 0}<em>/ ${n}</em></b></div>`,
+      )
+      .join("")}</div><button data-craft="${r.id}" aria-label="Fabriquer ${r.name}" ${!ready ? "disabled" : ""}>Fabriquer <span>→</span></button></article>`;
+  }).join("")}</div>`;
+}
+
 export function gardenView(state) {
-  return `<p>Choisissez un aménagement, puis placez-le sur votre terrain.</p><div class="object-grid">${["lamp", "fence", "bench", "bed", "workbench"].map((id) => `<article class="object-card">${figure(id, null, state.inventory[id] || 0)}<button data-build="${id}" aria-label="Placer ${ITEMS[id]}" ${!state.inventory[id] ? "disabled" : ""}>Placer</button></article>`).join("")}<article class="object-card">${figure("fertilizer", null, state.inventory.fertilizer || 0)}<button id="fertilize" ${!state.inventory.fertilizer ? "disabled" : ""}>Fertiliser</button></article></div>${state.buildings.length ? `<h3 class="collection-title">Déjà dans votre jardin</h3><div class="object-grid">${state.buildings.map((b, i) => `<article class="object-card">${figure(b.type)}<button data-remove="${i}" aria-label="Récupérer ${ITEMS[b.type]}">Récupérer</button></article>`).join("")}</div>` : ""}`;
+  const buildables = ["lamp", "fence", "bench", "bed", "workbench"];
+  return `<div class="menu-lead"><div><span class="section-kicker">PROPRIÉTÉ</span><h3>Aménager votre jardin</h3><p>Choisissez une création possédée puis placez-la librement sur votre terrain.</p></div><div class="menu-stat"><small>INSTALLÉS</small><b>${state.buildings.length}</b></div></div><div class="object-grid garden-grid">${buildables
+    .map(
+      (id) =>
+        `<article class="object-card garden-card">${figure(id, null, state.inventory[id] || 0)}<p class="object-description">${ITEM_META[id]?.[1] || "Aménagement pour votre propriété."}</p><button data-build="${id}" aria-label="Placer ${ITEMS[id]}" ${!state.inventory[id] ? "disabled" : ""}>Placer <span>→</span></button></article>`,
+    )
+    .join("")}<article class="object-card garden-card">${figure("fertilizer", null, state.inventory.fertilizer || 0)}<p class="object-description">${ITEM_META.fertilizer[1]}</p><button id="fertilize" ${!state.inventory.fertilizer ? "disabled" : ""}>Fertiliser <span>→</span></button></article></div>${state.buildings.length ? `<div class="collection-head"><div><span class="section-kicker">DÉJÀ INSTALLÉ</span><h3>Votre jardin aujourd’hui</h3></div><small>${state.buildings.length} aménagement(s)</small></div><div class="object-grid installed-grid">${state.buildings.map((b, i) => `<article class="object-card installed-card">${figure(b.type)}<button data-remove="${i}" aria-label="Récupérer ${ITEMS[b.type]}">Récupérer</button></article>`).join("")}</div>` : ""}`;
 }

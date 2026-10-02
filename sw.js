@@ -1,4 +1,4 @@
-const CACHE = "ambrelune-v1.3.0-monsters";
+const CACHE = "ambrelune-v1.4.0-premium-ui";
 const FILES = [
   "./",
   "./index.html",
@@ -10,6 +10,7 @@ const FILES = [
   "./src/main.js",
   "./src/rendering/art.js",
   "./src/rendering/battle-stage.js",
+  "./src/rendering/creature-preview.js",
   "./src/rendering/monster-models.js",
   "./src/rendering/icons.js",
   "./src/rendering/journal-ui.js",

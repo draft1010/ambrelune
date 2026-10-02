@@ -190,6 +190,9 @@ function toast(text) {
 }
 function showModal(html, closable = true) {
   clearCreaturePortraits();
+  const paper = document.querySelector("#modal .paper");
+  paper?.classList.toggle("journal-paper", html.includes('class="journal-shell"'));
+  paper?.classList.toggle("story-dialog", !html.includes('class="journal-shell"'));
   $("modalContent").innerHTML = html;
   $("modal").hidden = false;
   $("closeModal").hidden = !closable;
@@ -679,15 +682,28 @@ function fishing() {
   };
 }
 const tabs = [
-  ["team", "Compagnons"],
-  ["bag", "Sac"],
-  ["craft", "Fabriquer"],
-  ["build", "Jardin"],
-  ["map", "Carte"],
-  ["journal", "Histoire"],
-  ["bestiary", "Bestiaire"],
-  ["settings", "Réglages"],
+  ["team", "Compagnons", "Vos liens et votre équipe active"],
+  ["bag", "Sac", "Ressources, récoltes et objets"],
+  ["craft", "Fabriquer", "Recettes et créations"],
+  ["build", "Jardin", "Aménagement de votre propriété"],
+  ["map", "Carte", "Lieux découverts et voyage rapide"],
+  ["journal", "Histoire", "Votre progression dans les Jardins"],
+  ["bestiary", "Bestiaire", "Créatures des terres de la Sève"],
+  ["settings", "Réglages", "Affichage, contrôles et sauvegarde"],
 ];
+const tabIcon = (id) => {
+  const icons = {
+    team: '<path d="M8.7 11.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Zm6.9 1.1a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5ZM3.6 19c.2-3 2-4.8 5.1-4.8s4.9 1.8 5.1 4.8m.7-3.7c2.8.1 4.4 1.4 4.8 3.7"/>',
+    bag: '<path d="M7.2 7.8h9.6l1.1 12H6.1l1.1-12Zm2.2 0V6a2.6 2.6 0 0 1 5.2 0v1.8"/>',
+    craft: '<path d="m14.8 4.1 5.1 5.1-2.7 2.7-5.1-5.1 2.7-2.7ZM11 8l-6.8 6.8a2.3 2.3 0 0 0 3.2 3.2l6.8-6.8M4.8 4.8l3.6 3.6"/>',
+    build: '<path d="M4 10.2 12 4l8 6.2V20H4v-9.8ZM8.3 20v-5.7h7.4V20"/>',
+    map: '<path d="m4 6 5-2 6 2 5-2v14l-5 2-6-2-5 2V6Zm5-2v14m6-12v14"/>',
+    journal: '<path d="M5.2 4.5h8.1A2.7 2.7 0 0 1 16 7.2V20H7.5a2.3 2.3 0 0 1-2.3-2.3V4.5Zm10.8 3h2.8V20H16"/>',
+    bestiary: '<path d="M12 5.2c2-2.4 5.2-2.2 6.7.3 1.2 2 .8 4.5-.8 6.2 1.1 2.5.2 5.6-2.3 6.9-1.3.7-2.7.6-3.6-.2-.9.8-2.3.9-3.6.2-2.5-1.3-3.4-4.4-2.3-6.9-1.6-1.7-2-4.2-.8-6.2 1.5-2.5 4.7-2.7 6.7-.3Z"/><path d="M9.3 10.4h.1m5.2 0h.1M9.8 14.3c1.5 1.2 2.9 1.2 4.4 0"/>',
+    settings: '<path d="M12 8.5A3.5 3.5 0 1 0 12 15a3.5 3.5 0 0 0 0-6.5Zm0-5 1.3 2.1 2.4-.2.4 2.4 2.2 1.2-1.1 2.2 1.1 2.2-2.2 1.2-.4 2.4-2.4-.2L12 20.5l-1.3-2.1-2.4.2-.4-2.4-2.2-1.2 1.1-2.2-1.1-2.2 2.2-1.2.4-2.4 2.4.2L12 3.5Z"/>',
+  };
+  return `<svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${icons[id] || icons.journal}</g></svg>`;
+};
 function openMenu(tab = modalTab) {
   if (!started || battle) return;
   modalTab = tab;
@@ -697,21 +713,27 @@ function openMenu(tab = modalTab) {
   if (tab === "craft") html = craftView(state, canAfford);
   if (tab === "build") html = gardenView(state);
   if (tab === "map")
-    html = `<p>Les lieux se dessinent au fil de vos pas. Choisissez un lieu découvert pour le marquer.</p><canvas class="mapLarge" id="largeMap" width="760" height="430"></canvas><div class="mapLegend">${LANDMARKS.filter(
+    html = `<div class="menu-lead"><div><span class="section-kicker">TERRES DE LA SÈVE</span><h3>Votre carte d’exploration</h3><p>Les chemins et les lieux se révèlent au fil de vos pas. Sélectionnez un lieu découvert pour y poser votre repère.</p></div><div class="menu-stat"><small>DÉCOUVERTS</small><b>${state.discovered.length}</b></div></div><div class="map-frame"><canvas class="mapLarge" id="largeMap" width="760" height="430"></canvas><div class="map-compass">N</div></div><div class="mapLegend premium-map-legend">${LANDMARKS.filter(
       (l) => state.discovered.includes(l.id),
     )
-      .map((l) => `<button data-mark="${l.id}">${l.name}</button>`)
+      .map((l) => `<button data-mark="${l.id}"><span>◇</span>${l.name}</button>`)
       .join(
         "",
-      )}</div><small>● Vous &nbsp; ◆ Objectif &nbsp; ○ Lieu découvert · Les secrets restent à explorer.</small>`;
+      )}</div><div class="map-key"><span><i class="key-you"></i>Vous</span><span><i class="key-goal"></i>Objectif</span><span><i class="key-place"></i>Lieu découvert</span><small>Les secrets restent à explorer.</small></div>`;
   if (tab === "journal")
-    html = `<p class="note">Le silence de la Source n’est pas une fin. Maëlle en est certaine : chaque nouvelle amitié, chaque jardin restauré lui rend une part de sa voix.</p>${QUESTS.map((q, i) => `<div class="row" style="margin-bottom:9px;opacity:${i > state.quest ? 0.4 : 1}"><div><b>${i < state.quest ? "✓" : i === state.quest ? "◇" : "·"} ${q.title}</b><small>${i <= state.quest ? q.text : "Une nouvelle page reste à écrire."}</small></div></div>`).join("")}<p>${state.stats.captured} liens tissés · ${state.stats.harvested} récoltes · ${state.buildings.length} aménagements</p>`;
-  if (tab === "bestiary")
-    html = `<p>Huit espèces habitent les terres de la Sève. Observez leurs habitudes et revenez à d’autres heures.</p><div class="cards">${SPECIES.map((c) => `<article class="card">${creaturePortrait3D(c.id, "bestiary")}<span class="tag">${ELEMENT_NAMES[c.element]}</span><h3>${c.name}</h3><p>${c.desc}</p><small>${c.habitat} · ${c.temper}<br>${state.team.some((t) => t.id === c.id) ? "✧ Lien tissé" : "À rencontrer"}</small></article>`).join("")}</div>`;
+    html = `<div class="story-hero"><span class="section-kicker">LE FIL DES JARDINS</span><h3>Une histoire qui s’écrit avec vos pas</h3><p>Le silence de la Source n’est pas une fin. Maëlle en est certaine : chaque nouvelle amitié, chaque jardin restauré lui rend une part de sa voix.</p></div><div class="story-progress">${QUESTS.map((q, i) => `<article class="story-step ${i < state.quest ? "done" : i === state.quest ? "current" : "locked"}"><div class="story-marker">${i < state.quest ? "✓" : i === state.quest ? "◇" : i + 1}</div><div><small>${i < state.quest ? "ACCOMPLI" : i === state.quest ? "EN COURS" : "À VENIR"}</small><h3>${q.title}</h3><p>${i <= state.quest ? q.text : "Une nouvelle page reste à écrire."}</p></div></article>`).join("")}</div><div class="journey-stats"><div><small>LIENS TISSÉS</small><b>${state.stats.captured}</b></div><div><small>RÉCOLTES</small><b>${state.stats.harvested}</b></div><div><small>AMÉNAGEMENTS</small><b>${state.buildings.length}</b></div><div><small>JOUR ACTUEL</small><b>${state.day}</b></div></div>`;
+  if (tab === "bestiary") {
+    const linked = SPECIES.filter((c) => state.team.some((t) => t.id === c.id)).length;
+    html = `<div class="menu-lead"><div><span class="section-kicker">CODEX DES CRÉATURES</span><h3>Le bestiaire d’Ambrelune</h3><p>Observez leur tempérament, leur élément et les lieux où elles apparaissent. Certaines ne se montrent qu’à des conditions particulières.</p></div><div class="menu-stat"><small>LIENS TISSÉS</small><b>${linked}<em> / ${SPECIES.length}</em></b></div></div><div class="bestiary-grid">${SPECIES.map((c, index) => {
+      const owned = state.team.some((t) => t.id === c.id);
+      return `<article class="bestiary-card ${owned ? "linked" : ""}" style="--species:${c.color};--species-accent:${c.accent}"><div class="bestiary-number">N° ${String(index + 1).padStart(2, "0")}</div><div class="bestiary-portrait">${creaturePortrait3D(c.id, "bestiary")}</div><div class="bestiary-info"><div class="bestiary-topline"><span class="element-chip">${ELEMENT_NAMES[c.element]}</span><span class="rarity">${"◆".repeat(Math.min(c.rarity, 5))}${"◇".repeat(Math.max(0, 5 - c.rarity))}</span></div><h3>${c.name}</h3><p>${c.desc}</p><div class="bestiary-meta"><span><small>HABITAT</small>${c.habitat}</span><span><small>TEMPÉRAMENT</small>${c.temper}</span></div><div class="bestiary-status">${owned ? "✦ Lien tissé" : "○ À rencontrer"}</div></div></article>`;
+    }).join("")}</div>`;
+  }
   if (tab === "settings")
-    html = `<p>Ajustez le rendu et conservez une copie de votre voyage.</p><div class="settings"><label>Qualité <select id="quality">${["low", "medium", "high", "ultra"].map((q, i) => `<option value="${q}" ${state.settings.quality === q ? "selected" : ""}>${["Basse", "Moyenne", "Haute", "Ultra"][i]}</option>`).join("")}</select></label><label><input type="checkbox" id="pixel" ${state.settings.pixel ? "checked" : ""}> Rendu pixel</label><label><input type="checkbox" id="sound" ${state.settings.sound ? "checked" : ""}> Sons</label><label><input type="checkbox" id="touch" ${state.settings.touch ? "checked" : ""}> Contrôles tactiles</label><label><input type="checkbox" id="perf" ${!$("debug").hidden ? "checked" : ""}> Mesures de performance</label></div><p><button id="saveBtn">Sauvegarder</button> <button id="exportBtn">Exporter le voyage</button> <button id="importBtn">Importer une copie</button><input type="file" id="importFile" accept="application/json" hidden></p><p><button id="fullscreen">Plein écran</button> <button id="photo">Mode paysage sans interface</button></p><p class="note">ZQSD / WASD / flèches : déplacement à 360° · Maj : courir · E : agir · 1–6 : outils · Tab : carnet · M : carte · R : tourner une construction · Échap : retour. Sur tactile : joystick gauche, caméra à droite.</p><small>Version 0.3 · Sauvegarde locale versionnée · Les Jardins d’Ambrelune</small>`;
+    html = `<div class="settings-grid"><section class="settings-card"><div class="settings-card-head"><span class="settings-symbol">◫</span><div><small>AFFICHAGE</small><h3>Qualité visuelle</h3></div></div><label class="setting-row"><span><b>Qualité graphique</b><small>Adapte ombres et finesse du rendu.</small></span><select id="quality">${["low", "medium", "high", "ultra"].map((q, i) => `<option value="${q}" ${state.settings.quality === q ? "selected" : ""}>${["Basse", "Moyenne", "Haute", "Ultra"][i]}</option>`).join("")}</select></label><label class="setting-row toggle-row"><span><b>Rendu pixel</b><small>Réduit la définition interne pour gagner des performances.</small></span><input type="checkbox" id="pixel" ${state.settings.pixel ? "checked" : ""}></label><label class="setting-row toggle-row"><span><b>Mesures de performance</b><small>Affiche les informations techniques.</small></span><input type="checkbox" id="perf" ${!$("debug").hidden ? "checked" : ""}></label></section><section class="settings-card"><div class="settings-card-head"><span class="settings-symbol">⌁</span><div><small>EXPÉRIENCE</small><h3>Sons & contrôles</h3></div></div><label class="setting-row toggle-row"><span><b>Sons d’Ambrelune</b><small>Ambiance, interactions et combats.</small></span><input type="checkbox" id="sound" ${state.settings.sound ? "checked" : ""}></label><label class="setting-row toggle-row"><span><b>Contrôles tactiles</b><small>Affiche les commandes adaptées au smartphone.</small></span><input type="checkbox" id="touch" ${state.settings.touch ? "checked" : ""}></label><div class="settings-actions"><button id="fullscreen">Plein écran</button><button id="photo">Mode paysage sans interface</button></div></section><section class="settings-card settings-card-wide"><div class="settings-card-head"><span class="settings-symbol">◇</span><div><small>VOYAGE</small><h3>Sauvegarde</h3></div></div><p>Votre progression est enregistrée localement sur cet appareil. Vous pouvez aussi conserver une copie du voyage.</p><div class="settings-actions"><button id="saveBtn" class="primary">Sauvegarder</button><button id="exportBtn">Exporter</button><button id="importBtn">Importer</button><input type="file" id="importFile" accept="application/json" hidden></div></section></div><div class="controls-note"><b>Commandes PC</b><span>ZQSD / WASD / flèches · déplacement à 360°</span><span>Maj · courir</span><span>E · agir</span><span>1–6 · outils</span><span>Tab · carnet</span><span>M · carte</span><span>R · tourner</span><span>Échap · retour</span></div><small class="version-note">Version 0.4 · Interface Ambrelune · Sauvegarde locale versionnée</small>`;
+  const current = tabs.find((t) => t[0] === tab) || tabs[0];
   showModal(
-    `<span class="eyebrow">LE CARNET DE ${esc(state.name).toUpperCase()}</span><h2>${tabs.find((t) => t[0] === tab)?.[1]}</h2><nav class="tabs">${tabs.map(([id, label]) => `<button data-tab="${id}" class="${id === tab ? "selected" : ""}">${label}</button>`).join("")}</nav>${html}`,
+    `<div class="journal-shell"><aside class="journal-sidebar"><div class="journal-brand"><span class="journal-sigil">❧</span><div><b>AMBRELUNE</b><small>CARNET DE ${esc(state.name).toUpperCase()}</small></div></div><nav class="journal-nav">${tabs.map(([id, label]) => `<button data-tab="${id}" class="${id === tab ? "selected" : ""}">${tabIcon(id)}<span>${label}</span><i></i></button>`).join("")}</nav><div class="journal-sidebar-foot"><div><small>JOUR</small><b>${state.day}</b></div><div><small>AMBRE</small><b>◈ ${state.coins}</b></div></div></aside><section class="journal-page"><header class="journal-page-header"><div><span class="eyebrow">${current[2].toUpperCase()}</span><h2>${current[1]}</h2></div><div class="journal-day"><small>${state.weather.toUpperCase()}</small><b>${$("clock").textContent || "08:00"}</b><span>${$("calendar").textContent || `Jour ${state.day}`}</span></div></header><div class="journal-content">${html}</div></section></div>`,
   );
   document
     .querySelectorAll("[data-tab]")
@@ -880,6 +902,7 @@ function openMenu(tab = modalTab) {
     };
   }
 }
+
 function attachTravel() {
   const box = document.createElement("div");
   box.className = "mapLegend";
