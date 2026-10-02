@@ -260,6 +260,7 @@ function begin(s) {
   audio.enabled = state.settings.sound;
   audio.start();
   applySettings();
+  renderToolbelt();
   updateHUD();
   cameraTarget.set(state.player.x, 1, state.player.z);
   persist();
@@ -370,24 +371,32 @@ function equipTool() {
   }
   player.userData.arms[1].add(heldTool);
 }
+function renderToolbelt() {
+  const belt = $("toolbelt");
+  if (!belt) return;
+  belt.innerHTML = TOOLS.map(
+    ([id, icon, name], i) =>
+      `<button class="tool ${id === tool ? "active" : ""}" data-tool="${id}" aria-label="${name}" title="${name} · ${i + 1}"><kbd>${i + 1}</kbd>${toolIcon(id)}<span>${name}</span></button>`,
+  ).join("");
+  belt.querySelectorAll("[data-tool]").forEach(
+    (b) => (b.onclick = () => selectTool(b.dataset.tool)),
+  );
+}
 function updateHUD() {
+  // Render tools first so the mobile toolbar never depends on companion/UI rendering.
+  renderToolbelt();
   const c = state.team[0];
-  $("companionIcon").innerHTML = portrait(c.id);
-  $("companionName").textContent = species(c.id).name;
-  $("companionInfo").textContent = `Niv. ${c.level} · ${c.hp}/${c.maxHp} PV`;
+  if (c) {
+    $("companionIcon").innerHTML = portrait(c.id);
+    $("companionName").textContent = species(c.id).name;
+    $("companionInfo").textContent = `Niv. ${c.level} · ${c.hp}/${c.maxHp} PV`;
+  }
   $("coins").textContent = `◈ ${state.coins}`;
   const q = QUESTS[state.quest];
   $("questTitle").textContent = q.title;
   $("questText").textContent = q.text;
   $("questProgress").style.width =
     `${(state.quest / (QUESTS.length - 1)) * 100}%`;
-  $("toolbelt").innerHTML = TOOLS.map(
-    ([id, icon, name], i) =>
-      `<button class="tool ${id === tool ? "active" : ""}" data-tool="${id}" aria-label="${name}" title="${name} · ${i + 1}"><kbd>${i + 1}</kbd>${toolIcon(id)}<span>${name}</span></button>`,
-  ).join("");
-  document
-    .querySelectorAll("[data-tool]")
-    .forEach((b) => (b.onclick = () => selectTool(b.dataset.tool)));
 }
 function questCheck() {
   if (advanceQuest(state)) {
@@ -1622,6 +1631,7 @@ function loop() {
     uiElapsed += dt;
     if (uiElapsed > 0.3) {
       updateUI();
+      if (!$("toolbelt").children.length) renderToolbelt();
       uiElapsed = 0;
     }
     if (building) {
