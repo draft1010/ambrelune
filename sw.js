@@ -1,4 +1,4 @@
-const CACHE = "ambrelune-v1.4.0-premium-ui";
+const CACHE = "ambrelune-v1.4.1-premium-ui-mobile";
 const FILES = [
   "./",
   "./index.html",
