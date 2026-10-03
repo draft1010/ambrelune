@@ -73,7 +73,11 @@ export function normalizeSave(raw) {
 export function load(storage = localStorage) {
   try {
     const raw = storage.getItem(SAVE_KEY);
-    return raw ? normalizeSave(JSON.parse(raw)) : null;
+    if (!raw) return null;
+    const normalized = normalizeSave(JSON.parse(raw));
+    // Repair/advance any quest whose condition was already fulfilled before loading.
+    advanceQuest(normalized);
+    return normalized;
   } catch {
     return null;
   }

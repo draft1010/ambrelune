@@ -301,7 +301,7 @@ export const QUESTS = [
   {
     title: "Une nouvelle amitié",
     text: "Explorez la clairière, affaiblissez une créature et tissez un lien de résonance.",
-    test: (s) => s.stats.captured >= 1,
+    test: (s) => s.stats.captured >= 1 || s.team.length >= 2,
   },
   {
     title: "Ce que le jardin nous rend",
