@@ -1,4 +1,4 @@
-const CACHE = "ambrelune-v8.4-low-performance";
+const CACHE = "ambrelune-v8.5-capture-quest-fix";
 const FILES = [
   "./",
   "./index.html",
