@@ -1,4 +1,4 @@
-const CACHE = "ambrelune-v8.5-capture-quest-fix";
+const CACHE = "ambrelune-v8.6-capture-transition-fix";
 const FILES = [
   "./",
   "./index.html",
