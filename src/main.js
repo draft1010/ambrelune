@@ -1381,6 +1381,9 @@ async function battleTurn(action) {
       };
       state.team.push(friend);
       state.stats.captured++;
+      // Validate the friendship quest immediately. Do not wait for endBattle(),
+      // because rendering/world sync errors must never block story progression.
+      questCheck();
       gainXp(a, 15);
       b.wild.cooldown = 100;
       endBattle(
