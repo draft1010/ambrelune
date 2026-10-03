@@ -84,3 +84,8 @@ Les données restent dans le navigateur utilisé. Exportez régulièrement votre
 - `tests/systems.test.mjs` : tests des règles et invariants.
 
 Vérification : `node --test tests/systems.test.mjs`. Les résultats et limites des essais de cette livraison sont consignés dans `VERIFICATION.md`.
+
+
+## Personnages & animations — intégration Quaternius
+
+Cette version utilise les packs fournis par le propriétaire du projet : Universal Base Characters, Modular Character Outfits - Fantasy, Universal Animation Library et Universal Animation Library 2. Les modèles sont chargés localement depuis `assets/characters/` (aucune dépendance CDN). Maëlle est explicitement une femme. Les PNJ utilisent plusieurs variantes de sexe, tenue et coiffure ; marche, course, idle et plusieurs interactions agricoles utilisent les bibliothèques d’animations. Les licences originales sont conservées dans `assets/characters/licenses/`.

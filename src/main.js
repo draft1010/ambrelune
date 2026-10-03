@@ -6,6 +6,7 @@ import {
   gardenView,
 } from "./rendering/journal-ui.js";
 import { BattleStage } from "./rendering/battle-stage.js";
+import { character, characterActionForTool } from "./rendering/character-assets.js";
 import { modelCreature } from "./rendering/monster-models.js";
 import {
   creaturePortrait3D,
@@ -17,7 +18,6 @@ import { toolIcon } from "./rendering/icons.js";
 import {
   T,
   Factory,
-  human,
   creature,
   furnishing,
   mat,
@@ -252,7 +252,7 @@ function ensurePlots() {
 function setupActors() {
   if (player) scene.remove(player);
   if (companion) scene.remove(companion);
-  player = human(state.color);
+  player = character("player", state.color);
   scene.add(player);
   player.position.set(
     state.player.x,
@@ -358,6 +358,7 @@ function selectTool(id) {
 function equipTool() {
   if (heldTool) heldTool.removeFromParent();
   heldTool = new T.Group();
+  heldTool.name = "HeldTool";
   const f = new Factory(heldTool);
   if (["axe", "pick", "hoe"].includes(tool)) {
     f.part(
@@ -557,7 +558,10 @@ function interact() {
   input.target = null;
   actionTimer = 0.65;
   player.rotation.y = Math.atan2(a.x - state.player.x, a.z - state.player.z);
-  if (a.type === "npc") return dialogue(a);
+  if (a.type === "npc") {
+    player.userData.playAction?.("Interact");
+    return dialogue(a);
+  }
   if (a.type === "wild") {
     if (a.id === "gardien" && state.quest < 5) {
       toast("Le Veilleur dort. Faites refleurir votre jardin pour l’éveiller.");
@@ -576,7 +580,8 @@ function interact() {
       tool === "water" ? "#a3d6da" : "#d5c78c",
     );
     toast(text);
-    player.userData.arms[1].rotation.x = -1;
+    if (player.userData.playAction) player.userData.playAction(characterActionForTool(tool));
+    else player.userData.arms[1].rotation.x = -1;
     questCheck();
     updateHUD();
     return;
@@ -609,13 +614,14 @@ function interact() {
     toast(
       `+${count} ${ITEMS[a.resourceType]} · La nature se renouvellera dans deux jours.`,
     );
-    player.userData.arms[1].rotation.x = -1.5;
+    if (player.userData.playAction) player.userData.playAction(characterActionForTool(tool));
+    else player.userData.arms[1].rotation.x = -1.5;
     persist();
     return;
   }
-  if (a.type === "home") return home();
-  if (a.type === "workbench") return openMenu("craft");
-  if (a.type === "fish") return fishing();
+  if (a.type === "home") { player.userData.playAction?.("Interact"); return home(); }
+  if (a.type === "workbench") { player.userData.playAction?.("Interact"); return openMenu("craft"); }
+  if (a.type === "fish") { player.userData.playAction?.("Interact"); return fishing(); }
 }
 function dialogue(n) {
   const met = state.friendship[n.name] || 0;
@@ -1512,11 +1518,12 @@ function movePlayer(dt) {
       audio.play("step");
     }
   }
-  player.userData.animate(time, moving);
+  player.userData.animate(time, moving, input.keys.has("shift") || input.running, dt);
   if (actionTimer > 0) {
     actionTimer -= dt;
-    player.userData.arms[1].rotation.x =
-      -Math.sin(((0.65 - actionTimer) / 0.65) * Math.PI) * 1.8;
+    if (!player.userData.ready)
+      player.userData.arms[1].rotation.x =
+        -Math.sin(((0.65 - actionTimer) / 0.65) * Math.PI) * 1.8;
   }
   let tx = state.player.x - Math.sin(player.rotation.y) * 1.4 - 1,
     tz = state.player.z - Math.cos(player.rotation.y) * 1.4;

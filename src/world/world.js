@@ -7,8 +7,8 @@ import {
   flower,
   lamp,
   furnishing,
-  human,
 } from "../rendering/art.js";
+import { character } from "../rendering/character-assets.js";
 import { modelCreature } from "../rendering/monster-models.js";
 import { stepNpc } from "../systems/npc-motion.js";
 import {
@@ -860,17 +860,17 @@ export class World {
   }
   populate() {
     const npcData = [
-      ["Maëlle", "La gardienne des jardins", -5, 4, "#9f8670"],
-      ["Soline", "Tisserande et marchande", -27, -14, "#b98769"],
-      ["Ivo", "Botaniste des Sources", -14, -20, "#73948a"],
-      ["Noé", "Promeneur des terrasses", -12, 15, "#8b91a5"],
-      ["Ysée", "La mémoire des ruines", 30, -29, "#b59c75"],
-      ["Tess", "Menuisière", -41, 8, "#8d9d7b"],
-      ["Orin", "Marchand de semences", -38, -14, "#bcaa78"],
-      ["Alba", "Voyageuse", -9, -40, "#ac8981"],
+      ["Maëlle", "La gardienne des jardins", -5, 4, "#9f8670", "maelle"],
+      ["Soline", "Tisserande et marchande", -27, -14, "#b98769", "soline"],
+      ["Ivo", "Botaniste des Sources", -14, -20, "#73948a", "ivo"],
+      ["Noé", "Promeneur des terrasses", -12, 15, "#8b91a5", "noe"],
+      ["Ysée", "La mémoire des ruines", 30, -29, "#b59c75", "ysee"],
+      ["Tess", "Menuisière", -41, 8, "#8d9d7b", "tess"],
+      ["Orin", "Marchand de semences", -38, -14, "#bcaa78", "orin"],
+      ["Alba", "Voyageuse", -9, -40, "#ac8981", "alba"],
     ];
-    npcData.forEach(([name, role, x, z, color], i) => {
-      const mesh = human(color, i % 2 ? "#ba8c69" : "#d5b496", i % 3 !== 0);
+    npcData.forEach(([name, role, x, z, color, characterKind], i) => {
+      const mesh = character(characterKind, color);
       mesh.position.set(x, height(x, z), z);
       mesh.rotation.y = i;
       this.scene.add(mesh);
@@ -1181,8 +1181,10 @@ export class World {
       n.mesh.position.set(n.x, height(n.x, n.z), n.z);
       if (motion.facing !== undefined) n.mesh.rotation.y = motion.facing;
       n.mesh.userData.animate(
-        motion.moving ? n.walkCycle : t * 0.15,
+        t,
         motion.moving,
+        false,
+        dt,
       );
     }
     for (const w of this.wild) {

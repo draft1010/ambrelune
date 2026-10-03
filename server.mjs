@@ -11,6 +11,9 @@ const mime = {
   ".webmanifest": "application/manifest+json",
   ".svg": "image/svg+xml",
   ".png": "image/png",
+  ".gltf": "model/gltf+json",
+  ".glb": "model/gltf-binary",
+  ".bin": "application/octet-stream",
   ".md": "text/plain; charset=utf-8",
 };
 http

@@ -1,4 +1,4 @@
-const CACHE = "ambrelune-v7.4-objective-arrow-screen-space";
+const CACHE = "ambrelune-v8.2-character-run-fix";
 const FILES = [
   "./",
   "./index.html",
@@ -9,6 +9,7 @@ const FILES = [
   "./assets/icon-512.png",
   "./src/main.js",
   "./src/rendering/art.js",
+  "./src/rendering/character-assets.js",
   "./src/rendering/battle-stage.js",
   "./src/rendering/creature-preview.js",
   "./src/rendering/monster-models.js",

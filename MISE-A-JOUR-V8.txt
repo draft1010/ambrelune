@@ -1,0 +1,15 @@
+AMBRELUNE V8 — PERSONNAGES & ANIMATIONS
+
+- Nouveau personnage principal riggé avec tenue fantasy.
+- Maëlle est désormais un personnage féminin.
+- Tous les PNJ principaux utilisent les nouveaux personnages Quaternius.
+- Variantes homme/femme, paysan/ranger et plusieurs coiffures.
+- Animations : idle, marche, sprint, interactions, plantation, arrosage, récolte et coupe du bois.
+- Les vêtements et cheveux sont rebondés sur le squelette principal afin de limiter le coût CPU sur smartphone.
+- Les textures des personnages ont été optimisées pour le web/mobile.
+- Aucun CDN requis : modèles, textures et animations sont inclus dans le jeu.
+- Les anciens personnages procéduraux servent de secours pendant le chargement ou en cas d’échec d’un asset.
+- Licences originales conservées dans assets/characters/licenses/.
+- Basé sur la version Ambrelune fournie par l’utilisateur (incluant les corrections HUD/menu/objectifs précédentes).
+
+Validation : 11/11 tests automatiques passent.
