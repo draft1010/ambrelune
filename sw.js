@@ -1,4 +1,4 @@
-const CACHE = "ambrelune-v1.4.4-premium-ui-toolbelt-runtime";
+const CACHE = "ambrelune-v7.1-clean-hud-quest-hidden";
 const FILES = [
   "./",
   "./index.html",

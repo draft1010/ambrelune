@@ -249,7 +249,23 @@ function setupActors() {
     state.player.z + 1,
   );
 }
+function requestGameFullscreen() {
+  // Browsers only permit fullscreen from a user gesture. begin() is called directly
+  // from the starter/continue tap, so request it here as early as possible.
+  const root = document.documentElement;
+  if (!document.fullscreenElement && root.requestFullscreen) {
+    try {
+      const p = root.requestFullscreen({ navigationUI: "hide" });
+      if (p?.then) {
+        p.then(() => screen.orientation?.lock?.("landscape").catch?.(() => {})).catch(() => {});
+      }
+    } catch {}
+  }
+}
+
 function begin(s) {
+  requestGameFullscreen();
+  input.zoom = 21;
   state = s;
   ensurePlots();
   started = true;

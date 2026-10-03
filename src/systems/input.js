@@ -5,7 +5,7 @@ export class Input {
     this.target = null;
     this.drag = null;
     this.angle = 0;
-    this.zoom = 36;
+    this.zoom = 21;
     this.running = false;
     this.pointerMoved = false;
     this.onGround = null;

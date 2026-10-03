@@ -37,7 +37,7 @@
     </div>
     <main id="hud" hidden>
       <header>
-        <div class="brand">
+        <div class="brand" hidden>
           <span>❧</span>
           <div>AMBRELUNE<small id="region">Les terrasses d’Ambre</small></div>
         </div>
@@ -46,7 +46,7 @@
           <div id="clock">08:00</div>
           <small id="calendar">Printemps · Jour 1</small>
         </div>
-        <button id="menuBtn" title="Carnet · Tab">
+        <button id="menuBtn" title="Carnet · Tab" hidden>
           ☷ <span>Carnet</span>
         </button>
       </header>
@@ -56,11 +56,11 @@
         <p id="questText"></p>
         <div class="progress"><i id="questProgress"></i></div>
       </aside>
-      <button id="mapBtn" aria-label="Ouvrir la carte">
+      <button id="mapBtn" aria-label="Ouvrir la carte" hidden>
         <canvas id="minimap" width="176" height="176"></canvas
         ><span>CARTE <kbd>M</kbd></span>
       </button>
-      <div id="companion">
+      <div id="companion" hidden>
         <span id="companionIcon"></span>
         <div><b id="companionName"></b><small id="companionInfo"></small></div>
         <span id="coins"></span>

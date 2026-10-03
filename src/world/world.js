@@ -801,9 +801,9 @@ export class World {
         const size = 0.65 + r() * 0.65;
         tree(f, x, height(x, z), z, size, Math.floor(r() * 3));
         this.collider(x, z, 0.29 * size);
-      } else if (!farm && !city) {
-        f.part("sphere", "#879b63", x, height(x, z) + 0.3, z, 0.8, 0.5, 0.7);
       }
+      // V7: removed the old standalone spherical shrubs. They read as green balls
+      // against the more organic vegetation and are intentionally left empty here.
     }
     for (let i = 0; i < 240; i++) {
       const x = cx * 30 + (r() - 0.5) * 30,
