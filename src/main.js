@@ -1381,9 +1381,21 @@ async function battleTurn(action) {
       };
       state.team.push(friend);
       state.stats.captured++;
-      // Validate the friendship quest immediately. Do not wait for endBattle(),
-      // because rendering/world sync errors must never block story progression.
-      questCheck();
+      // Advance and save story state while the battle is still open, but never
+      // refresh the HUD here. Updating the objective tracker during battle can
+      // interrupt the capture transition on some browsers/devices.
+      if (advanceQuest(state)) {
+        state.flags.marker = [
+          "city",
+          "home",
+          "forest",
+          "home",
+          "home",
+          "ruins",
+          "home",
+        ][state.quest];
+      }
+      persist();
       gainXp(a, 15);
       b.wild.cooldown = 100;
       endBattle(
