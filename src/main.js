@@ -130,6 +130,7 @@ let state = newState(),
   frameElapsed = 0,
   fps = 0,
   frameMs = 0,
+  lowRenderScale = 0.85,
   stepElapsed = 0,
   farmHelperElapsed = 0,
   lastDailyHour = 8;
@@ -856,7 +857,7 @@ function openMenu(tab = modalTab) {
     }).join("")}</div>`;
   }
   if (tab === "settings")
-    html = `<div class="settings-grid"><section class="settings-card"><div class="settings-card-head"><span class="settings-symbol">◫</span><div><small>AFFICHAGE</small><h3>Qualité visuelle</h3></div></div><label class="setting-row"><span><b>Qualité graphique</b><small>Adapte ombres et finesse du rendu.</small></span><select id="quality">${["low", "medium", "high", "ultra"].map((q, i) => `<option value="${q}" ${state.settings.quality === q ? "selected" : ""}>${["Basse", "Moyenne", "Haute", "Ultra"][i]}</option>`).join("")}</select></label><label class="setting-row toggle-row"><span><b>Mesures de performance</b><small>Affiche les informations techniques.</small></span><input type="checkbox" id="perf" ${!$("debug").hidden ? "checked" : ""}></label></section><section class="settings-card"><div class="settings-card-head"><span class="settings-symbol">⌁</span><div><small>EXPÉRIENCE</small><h3>Sons & contrôles</h3></div></div><label class="setting-row toggle-row"><span><b>Sons d’Ambrelune</b><small>Ambiance, interactions et combats.</small></span><input type="checkbox" id="sound" ${state.settings.sound ? "checked" : ""}></label><label class="setting-row toggle-row"><span><b>Contrôles tactiles</b><small>Affiche les commandes adaptées au smartphone.</small></span><input type="checkbox" id="touch" ${state.settings.touch ? "checked" : ""}></label><div class="settings-actions"><button id="fullscreen">Plein écran</button><button id="photo">Mode paysage sans interface</button></div></section><section class="settings-card settings-card-wide"><div class="settings-card-head"><span class="settings-symbol">◇</span><div><small>VOYAGE</small><h3>Sauvegarde</h3></div></div><p>Votre progression est enregistrée localement sur cet appareil. Vous pouvez aussi conserver une copie du voyage.</p><div class="settings-actions"><button id="saveBtn" class="primary">Sauvegarder</button><button id="exportBtn">Exporter</button><button id="importBtn">Importer</button><input type="file" id="importFile" accept="application/json" hidden></div></section></div><div class="controls-note"><b>Commandes PC</b><span>ZQSD / WASD / flèches · déplacement à 360°</span><span>Maj · courir</span><span>E · agir</span><span>1–6 · outils</span><span>Tab · carnet</span><span>M · carte</span><span>R · tourner</span><span>Échap · retour</span></div><small class="version-note">Version 0.4 · Interface Ambrelune · Sauvegarde locale versionnée</small>`;
+    html = `<div class="settings-grid"><section class="settings-card"><div class="settings-card-head"><span class="settings-symbol">◫</span><div><small>AFFICHAGE</small><h3>Qualité visuelle</h3></div></div><label class="setting-row"><span><b>Qualité graphique</b><small>Adapte ombres et finesse du rendu.</small></span><select id="quality">${["low", "medium", "high", "ultra"].map((q, i) => `<option value="${q}" ${state.settings.quality === q ? "selected" : ""}>${["Basse · optimisée", "Moyenne", "Haute", "Ultra"][i]}</option>`).join("")}</select></label><label class="setting-row toggle-row"><span><b>Mesures de performance</b><small>Affiche les informations techniques.</small></span><input type="checkbox" id="perf" ${!$("debug").hidden ? "checked" : ""}></label></section><section class="settings-card"><div class="settings-card-head"><span class="settings-symbol">⌁</span><div><small>EXPÉRIENCE</small><h3>Sons & contrôles</h3></div></div><label class="setting-row toggle-row"><span><b>Sons d’Ambrelune</b><small>Ambiance, interactions et combats.</small></span><input type="checkbox" id="sound" ${state.settings.sound ? "checked" : ""}></label><label class="setting-row toggle-row"><span><b>Contrôles tactiles</b><small>Affiche les commandes adaptées au smartphone.</small></span><input type="checkbox" id="touch" ${state.settings.touch ? "checked" : ""}></label><div class="settings-actions"><button id="fullscreen">Plein écran</button><button id="photo">Mode paysage sans interface</button></div></section><section class="settings-card settings-card-wide"><div class="settings-card-head"><span class="settings-symbol">◇</span><div><small>VOYAGE</small><h3>Sauvegarde</h3></div></div><p>Votre progression est enregistrée localement sur cet appareil. Vous pouvez aussi conserver une copie du voyage.</p><div class="settings-actions"><button id="saveBtn" class="primary">Sauvegarder</button><button id="exportBtn">Exporter</button><button id="importBtn">Importer</button><input type="file" id="importFile" accept="application/json" hidden></div></section></div><div class="controls-note"><b>Commandes PC</b><span>ZQSD / WASD / flèches · déplacement à 360°</span><span>Maj · courir</span><span>E · agir</span><span>1–6 · outils</span><span>Tab · carnet</span><span>M · carte</span><span>R · tourner</span><span>Échap · retour</span></div><small class="version-note">Version 0.4 · Interface Ambrelune · Sauvegarde locale versionnée</small>`;
   const current = tabs.find((t) => t[0] === tab) || tabs[0];
   showModal(
     `<div class="journal-shell"><aside class="journal-sidebar"><div class="journal-brand"><span class="journal-sigil">❧</span><div><b>AMBRELUNE</b><small>CARNET DE ${esc(state.name).toUpperCase()}</small></div></div><nav class="journal-nav">${tabs.map(([id, label]) => `<button data-tab="${id}" class="${id === tab ? "selected" : ""}">${tabIcon(id)}<span>${label}</span><i></i></button>`).join("")}</nav><div class="journal-sidebar-foot"><div><small>JOUR</small><b>${state.day}</b></div><div><small>AMBRE</small><b>◈ ${state.coins}</b></div></div></aside><section class="journal-page"><header class="journal-page-header"><div><span class="eyebrow">${current[2].toUpperCase()}</span><h2>${current[1]}</h2></div><div class="journal-day"><small>${state.weather.toUpperCase()}</small><b>${$("clock").textContent || "08:00"}</b><span>${$("calendar").textContent || `Jour ${state.day}`}</span></div></header><div class="journal-content">${html}</div></section></div>`,
@@ -1054,12 +1055,21 @@ function attachTravel() {
   );
 }
 function applySettings() {
-  const q = state.settings.quality,
-    ratio = { low: 1, medium: 1.2, high: 1.7, ultra: 2.5 }[q];
+  const q = state.settings.quality;
+  // Medium/High/Ultra deliberately keep their existing rendering unchanged.
+  // Low is the dedicated performance mode for weaker phones.
+  if (q !== "low") lowRenderScale = 0.85;
+  const ratio = q === "low"
+    ? lowRenderScale
+    : { medium: 1.2, high: 1.7, ultra: 2.5 }[q];
+
   state.settings.pixel = false;
   renderer.setPixelRatio(Math.min(devicePixelRatio, ratio));
   renderer.domElement.style.imageRendering = "auto";
-  renderer.shadowMap.enabled = q !== "low";
+
+  const low = q === "low";
+  renderer.shadowMap.enabled = !low;
+  sun.castShadow = !low;
   const res = q === "ultra" ? 4096 : q === "high" ? 2048 : 1024;
   if (sun.shadow.mapSize.x !== res) {
     sun.shadow.mapSize.set(res, res);
@@ -1068,6 +1078,12 @@ function applySettings() {
       sun.shadow.map = null;
     }
   }
+
+  // Slightly shorter view distance only in Low; fog masks the chunk culling softly.
+  scene.fog.near = low ? 52 : 65;
+  scene.fog.far = low ? 105 : 135;
+  world.setQuality?.(q);
+
   audio.enabled = state.settings.sound;
   document.body.classList.toggle(
     "touch",
@@ -1724,6 +1740,18 @@ function loop() {
     frameMs = (frameElapsed / frames) * 1000;
     frames = 0;
     frameElapsed = 0;
+
+    // Low mode only: adapt internal resolution gently to the phone's real FPS.
+    // This never changes Medium or the higher quality modes.
+    if (started && state.settings.quality === "low") {
+      const previous = lowRenderScale;
+      if (fps < 24) lowRenderScale = Math.max(0.65, lowRenderScale - 0.08);
+      else if (fps < 31) lowRenderScale = Math.max(0.65, lowRenderScale - 0.04);
+      else if (fps > 48) lowRenderScale = Math.min(0.85, lowRenderScale + 0.04);
+      if (Math.abs(previous - lowRenderScale) >= 0.025)
+        renderer.setPixelRatio(Math.min(devicePixelRatio, lowRenderScale));
+    }
+
     const inf = renderer.info.render;
     $("debug").textContent =
       `${fps.toFixed(1)} FPS · ${frameMs.toFixed(1)} ms\n${inf.calls} appels · ${inf.triangles.toLocaleString()} triangles\n${world.chunks.filter((c) => c.g.visible).length}/${world.chunks.length} chunks visibles\n${innerWidth} × ${innerHeight} · DPR ${renderer.getPixelRatio().toFixed(2)}\nPosition ${state.player.x.toFixed(1)}, ${state.player.z.toFixed(1)}\n${renderer.info.memory.geometries} géométries · ${renderer.info.memory.textures} textures\nPNJ ${world.npcs
