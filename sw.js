@@ -1,4 +1,4 @@
-const CACHE = "ambrelune-v7.1-clean-hud-quest-hidden";
+const CACHE = "ambrelune-v7.4-objective-arrow-screen-space";
 const FILES = [
   "./",
   "./index.html",

@@ -200,6 +200,24 @@ function showModal(html, closable = true) {
   input.target = null;
   input.keys.clear();
   mountCreaturePortraits($("modalContent"));
+
+  // Desktop: make the premium journal reliably wheel-scrollable even when
+  // the pointer is over the header/sidebar or a nested card. Mobile keeps
+  // its full-sheet native touch scrolling.
+  if (paper) {
+    const desktopJournal =
+      paper.classList.contains("journal-paper") &&
+      matchMedia("(pointer: fine)").matches;
+    paper.onwheel = desktopJournal
+      ? (event) => {
+          const content = paper.querySelector(".journal-content");
+          if (!content || content.scrollHeight <= content.clientHeight) return;
+          const before = content.scrollTop;
+          content.scrollTop += event.deltaY;
+          if (content.scrollTop !== before) event.preventDefault();
+        }
+      : null;
+  }
 }
 function closeModal() {
   clearCreaturePortraits();
@@ -398,9 +416,58 @@ function renderToolbelt() {
     (b) => (b.onclick = () => selectTool(b.dataset.tool)),
   );
 }
+const QUEST_TARGETS = ["city", "home", "forest", "home", "home", "ruins", null];
+
+function currentQuestIndex() {
+  const raw = Number(state?.quest);
+  if (!Number.isFinite(raw)) return 0;
+  return Math.max(0, Math.min(QUESTS.length - 1, Math.trunc(raw)));
+}
+
+function updateObjectiveTracker() {
+  if (!state) return;
+  const qi = currentQuestIndex();
+  const q = QUESTS[qi] || QUESTS[0];
+  const title = $("questTitle"), text = $("questText"), progress = $("questProgress");
+  if (title) title.textContent = q?.title || "Votre prochaine étape";
+  if (text) text.textContent = q?.text || "Poursuivez votre aventure dans les Jardins.";
+  if (progress) progress.style.width = `${(qi / Math.max(1, QUESTS.length - 1)) * 100}%`;
+
+  const targetId = QUEST_TARGETS[qi];
+  const target = targetId ? LANDMARKS.find((l) => l.id === targetId) : null;
+  const direction = $("questDirection"), arrow = $("questArrow"), place = $("questPlace"), distance = $("questDistance");
+  if (!direction || !arrow || !place || !distance) return;
+
+  if (!target) {
+    direction.classList.add("free");
+    arrow.textContent = "✦";
+    arrow.style.transform = "none";
+    place.textContent = "Exploration libre";
+    distance.textContent = "";
+    return;
+  }
+
+  direction.classList.remove("free");
+  place.textContent = target.name;
+  const dx = target.x - state.player.x;
+  const dz = target.z - state.player.z;
+  const meters = Math.max(0, Math.round(Math.hypot(dx, dz)));
+  distance.textContent = meters < 2 ? "Sur place" : `${meters} m`;
+
+  // Arrow points toward the target relative to the current camera heading.
+  // CSS rotation is clockwise on screen, while the world bearing delta uses the opposite horizontal sign.
+  const targetBearing = Math.atan2(dx, dz);
+  const cameraForwardBearing = 0.65 + input.angle + Math.PI;
+  let delta = targetBearing - cameraForwardBearing;
+  delta = ((delta + Math.PI) % (Math.PI * 2)) - Math.PI;
+  arrow.textContent = "↑";
+  arrow.style.transform = `rotate(${-delta}rad)`;
+}
+
 function updateHUD() {
   // Render tools first so the mobile toolbar never depends on companion/UI rendering.
   renderToolbelt();
+  updateObjectiveTracker();
   const c = state.team[0];
   if (c) {
     $("companionIcon").innerHTML = portrait(c.id);
@@ -408,11 +475,6 @@ function updateHUD() {
     $("companionInfo").textContent = `Niv. ${c.level} · ${c.hp}/${c.maxHp} PV`;
   }
   $("coins").textContent = `◈ ${state.coins}`;
-  const q = QUESTS[state.quest];
-  $("questTitle").textContent = q.title;
-  $("questText").textContent = q.text;
-  $("questProgress").style.width =
-    `${(state.quest / (QUESTS.length - 1)) * 100}%`;
 }
 function questCheck() {
   if (advanceQuest(state)) {
@@ -1572,6 +1634,7 @@ function updateUI() {
         : state.time > 19 || state.time < 6
           ? "☾"
           : "☀";
+  updateObjectiveTracker();
   if (!battle) {
     selected = nearby();
     $("hint").textContent = selected?.name || "";

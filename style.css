@@ -3228,3 +3228,153 @@ body.touch #toolbelt {
     right: max(10px, env(safe-area-inset-right)) !important;
   }
 }
+
+
+/* ===== V7.2: desktop journal scrolling + compact objective tracker ===== */
+/* Establish a real constrained scroll viewport on mouse/desktop layouts. */
+@media (pointer: fine) {
+  #modal .paper.journal-paper #modalContent {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+  #modal .journal-shell {
+    height: 100%;
+    min-height: 0;
+  }
+  #modal .journal-page {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+  #modal .journal-content {
+    min-height: 0;
+    overflow-y: scroll;
+    overflow-x: hidden;
+    scrollbar-gutter: stable;
+    scrollbar-width: auto;
+    overscroll-behavior: contain;
+    pointer-events: auto;
+  }
+  #modal .journal-content::-webkit-scrollbar {
+    width: 11px;
+  }
+  #modal .journal-content::-webkit-scrollbar-thumb {
+    background: rgba(48, 76, 64, .34);
+    border: 3px solid transparent;
+    background-clip: padding-box;
+    border-radius: 999px;
+  }
+  #modal .journal-content::-webkit-scrollbar-track {
+    background: rgba(48, 76, 64, .055);
+  }
+}
+
+/* Small objective tracker: visible during play, hidden while a menu is open. */
+.quest {
+  display: block !important;
+  position: fixed !important;
+  top: max(14px, env(safe-area-inset-top)) !important;
+  left: max(14px, env(safe-area-inset-left)) !important;
+  width: min(285px, 36vw) !important;
+  padding: 10px 12px 9px !important;
+  border: 1px solid rgba(255,255,255,.55) !important;
+  border-left: 3px solid var(--gold) !important;
+  border-radius: 0 12px 12px 0 !important;
+  background: rgba(247, 241, 224, .84) !important;
+  box-shadow: 0 8px 24px rgba(15, 38, 31, .14) !important;
+  backdrop-filter: blur(7px) saturate(.9);
+  -webkit-backdrop-filter: blur(7px) saturate(.9);
+  pointer-events: none;
+  z-index: 8;
+}
+.quest small {
+  display: block;
+  margin: 0 0 4px;
+  color: #8b7446;
+  font: 700 7px/1 system-ui, sans-serif;
+  letter-spacing: 1.7px;
+}
+.quest h3 {
+  margin: 0 0 3px;
+  color: #29483f;
+  font: 650 14px/1.15 system-ui, sans-serif;
+}
+.quest p {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  color: #65756b;
+  font: 500 10.5px/1.35 system-ui, sans-serif;
+}
+.quest-direction {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  margin-top: 7px;
+  min-height: 24px;
+  padding: 5px 7px;
+  border-radius: 8px;
+  background: rgba(39, 72, 62, .075);
+  color: #29483f;
+  font-family: system-ui, sans-serif;
+}
+.quest-direction > span {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  color: #a77935;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1;
+  transform-origin: 50% 50%;
+  transition: transform .12s linear;
+}
+.quest-direction b {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 9.5px;
+  font-weight: 700;
+}
+.quest-direction em {
+  color: #6f7c73;
+  font-size: 8.5px;
+  font-style: normal;
+  white-space: nowrap;
+}
+.quest-direction.free > span { font-size: 14px; }
+.quest .progress {
+  height: 2px;
+  margin-top: 7px;
+  background: rgba(69, 98, 78, .15);
+}
+.quest .progress i {
+  height: 2px;
+}
+body.modal-open .quest {
+  display: none !important;
+}
+
+@media (pointer: coarse), (max-height: 900px) and (orientation: landscape) {
+  .quest {
+    top: max(8px, env(safe-area-inset-top)) !important;
+    left: max(8px, env(safe-area-inset-left)) !important;
+    width: min(250px, 34vw) !important;
+    padding: 8px 10px 7px !important;
+    border-radius: 0 10px 10px 0 !important;
+  }
+  .quest small { font-size: 6px; letter-spacing: 1.4px; }
+  .quest h3 { font-size: 12.5px; }
+  .quest p { font-size: 9px; line-height: 1.3; }
+  .quest-direction { margin-top: 5px; padding: 4px 6px; grid-template-columns: 19px minmax(0,1fr) auto; gap: 5px; }
+  .quest-direction > span { width: 19px; height: 19px; font-size: 17px; }
+  .quest-direction b { font-size: 8.5px; }
+  .quest-direction em { font-size: 7.5px; }
+  .quest .progress { margin-top: 6px; }
+}

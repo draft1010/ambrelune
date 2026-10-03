@@ -51,9 +51,14 @@
         </button>
       </header>
       <aside class="quest">
-        <small>LE FIL DES JARDINS</small>
-        <h3 id="questTitle"></h3>
-        <p id="questText"></p>
+        <small>OBJECTIF</small>
+        <h3 id="questTitle">Votre prochaine étape</h3>
+        <p id="questText">Consultez votre carnet pour poursuivre l’aventure.</p>
+        <div id="questDirection" class="quest-direction">
+          <span id="questArrow" aria-hidden="true">↑</span>
+          <b id="questPlace">Destination</b>
+          <em id="questDistance"></em>
+        </div>
         <div class="progress"><i id="questProgress"></i></div>
       </aside>
       <button id="mapBtn" aria-label="Ouvrir la carte" hidden>
