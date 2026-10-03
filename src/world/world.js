@@ -73,6 +73,7 @@ export class World {
     this.buildLampPoolMaterial = null;
     this.buildLampPoolGeometry = null;
     this.rand = random(57291);
+    this.lowQuality = false;
     this.build();
   }
   collider(x, z, r, kind = "circle", w = 0, d = 0) {
@@ -165,6 +166,7 @@ export class World {
         uniforms: {
           time: { value: 0 },
           sun: { value: 1 },
+          lowQuality: { value: 0 },
         },
         vertexShader: `
           varying vec3 vWorldP;
@@ -192,6 +194,7 @@ export class World {
           varying float vWave;
           uniform float time;
           uniform float sun;
+          uniform float lowQuality;
 
           float hash21(vec2 p){
             return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453123);
@@ -228,6 +231,20 @@ export class World {
             if (bank > 5.2) discard;
 
             float edgeAlpha = 1.0 - smoothstep(4.15, 5.2, bank);
+
+            if (lowQuality > 0.5) {
+              // Low: lightweight water with the same palette/banks, without layered FBM.
+              float wave = sin(p.x*.72 + p.y*.46 + time*.7) * .5 + .5;
+              float depthMix = clamp((bank - 1.0) / 4.3, 0.0, 1.0);
+              vec3 deep = vec3(.035,.205,.285);
+              vec3 shallow = vec3(.145,.485,.495);
+              vec3 lowC = mix(deep, shallow, depthMix*.38);
+              lowC *= .84 + wave*.10;
+              lowC *= .58 + .42 * sun;
+              lowC += vWave * .09;
+              gl_FragColor = vec4(lowC, edgeAlpha * .96);
+              return;
+            }
 
             float broad = fbm(p * .075 + vec2(time * .025, -time * .018));
             float fine  = fbm(p * .28  + vec2(-time * .06, time * .035));
@@ -1143,7 +1160,21 @@ export class World {
     this.scene.add(this.rain);
     this.effects = [];
   }
+  setQuality(q) {
+    const low = q === "low";
+    this.lowQuality = low;
+    if (this.water?.material?.uniforms?.lowQuality)
+      this.water.material.uniforms.lowQuality.value = low ? 1 : 0;
+    if (this.ground?.material) {
+      this.ground.material.userData.lowQuality = low;
+      if (this.ground.material.userData.ambLowUniform)
+        this.ground.material.userData.ambLowUniform.value = low ? 1 : 0;
+    }
+    if (this.motes) this.motes.visible = !low;
+    if (this.rain?.geometry) this.rain.geometry.setDrawRange(0, low ? 420 : 1200);
+  }
   burst(x, y, z, color = "#efd28b", count = 14) {
+    if (this.lowQuality) count = Math.min(count, 8);
     const r = this.rand,
       geo = new T.BufferGeometry(),
       p = new Float32Array(count * 3),
@@ -1166,7 +1197,8 @@ export class World {
     if (this.rain.visible) {
       this.rain.position.set(px, 0, pz);
       const a = this.rain.geometry.attributes.position;
-      for (let i = 0; i < a.count; i++) {
+      const rainCount = this.lowQuality ? Math.min(a.count, 420) : a.count;
+      for (let i = 0; i < rainCount; i++) {
         a.setY(i, (a.getY(i) - dt * 16 + 25) % 25);
         a.setX(i, ((a.getX(i) - dt * 2 + 30) % 60) - 30);
       }
@@ -1177,6 +1209,10 @@ export class World {
     this.motes.material.opacity =
       state.time > 18 || state.time < 6 ? 0.8 : 0.35;
     for (const n of this.npcs) {
+      const npcDistance = Math.hypot(px - n.x, pz - n.z);
+      const npcVisible = !this.lowQuality || npcDistance < 38;
+      n.mesh.visible = npcVisible;
+      if (!npcVisible) continue;
       const motion = stepNpc(n, dt, { x: px, z: pz }, this.collides.bind(this));
       n.mesh.position.set(n.x, height(n.x, n.z), n.z);
       if (motion.facing !== undefined) n.mesh.rotation.y = motion.facing;
@@ -1191,8 +1227,10 @@ export class World {
       w.cooldown = Math.max(0, w.cooldown - dt);
       const nocturnal = w.id === "lumignon",
         rainOnly = w.id === "coralys";
+      const wildDistance = Math.hypot(px - w.homeX, pz - w.homeZ);
       w.mesh.visible =
         w.cooldown === 0 &&
+        (!this.lowQuality || wildDistance < 42) &&
         (!nocturnal || state.time >= 17 || state.time < 6) &&
         (!rainOnly || state.weather === "pluie") &&
         !(w.id === "gardien" && state.flags.guardian);
@@ -1243,11 +1281,12 @@ export class World {
     const lampStrength = T.MathUtils.smoothstep(1 - daylight, 0.18, 0.82);
     if (this.buildLampPoolMaterial)
       this.buildLampPoolMaterial.opacity = lampStrength * 0.72;
-    for (const entry of this.buildLampLights) entry.light.intensity = lampStrength * 1.75;
+    for (const entry of this.buildLampLights)
+      entry.light.intensity = this.lowQuality ? 0 : lampStrength * 1.75;
 
     const radius =
       state.settings.quality === "low"
-        ? 55
+        ? 48
         : state.settings.quality === "medium"
           ? 70
           : 95;
