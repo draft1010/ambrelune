@@ -425,6 +425,37 @@ function currentQuestIndex() {
   return Math.max(0, Math.min(QUESTS.length - 1, Math.trunc(raw)));
 }
 
+function setObjectiveCompact(compact, remember = true) {
+  const panel = document.querySelector(".quest");
+  if (!panel) return;
+  panel.classList.toggle("compact", !!compact);
+  panel.setAttribute("aria-expanded", String(!compact));
+  panel.setAttribute("aria-label", compact ? "Afficher l’objectif complet" : "Réduire l’objectif");
+  panel.title = compact ? "Afficher l’objectif complet" : "Réduire l’objectif";
+  if (remember) {
+    try { localStorage.setItem("ambrelune.objectiveCompact", compact ? "1" : "0"); } catch {}
+  }
+}
+
+function setupObjectiveToggle() {
+  const panel = document.querySelector(".quest");
+  if (!panel || panel.dataset.toggleReady === "1") return;
+  panel.dataset.toggleReady = "1";
+  let compact = false;
+  try { compact = localStorage.getItem("ambrelune.objectiveCompact") === "1"; } catch {}
+  setObjectiveCompact(compact, false);
+  const toggle = () => setObjectiveCompact(!panel.classList.contains("compact"));
+  panel.addEventListener("click", toggle);
+  panel.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      toggle();
+    }
+  });
+}
+
+setupObjectiveToggle();
+
 function updateObjectiveTracker() {
   if (!state) return;
   const qi = currentQuestIndex();
