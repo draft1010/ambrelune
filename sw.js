@@ -1,4 +1,4 @@
-const CACHE = "ambrelune-v8.3-collapsible-objective";
+const CACHE = "ambrelune-v8.4-low-performance";
 const FILES = [
   "./",
   "./index.html",
