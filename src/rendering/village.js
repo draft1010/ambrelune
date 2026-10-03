@@ -65,7 +65,12 @@ export function groundMaterial() {
     normalScale: new T.Vector2(0, 0),
   });
 
+  material.userData.lowQuality = false;
+  material.userData.ambLowUniform = null;
+
   material.onBeforeCompile = (shader) => {
+    shader.uniforms.ambLowQuality = { value: material.userData.lowQuality ? 1 : 0 };
+    material.userData.ambLowUniform = shader.uniforms.ambLowQuality;
     shader.uniforms.ambGrass = { value: tex.grass };
     shader.uniforms.ambGrassDetail = { value: tex.grassDetail };
     shader.uniforms.ambGrassNormal = { value: tex.grassNormal };
@@ -87,6 +92,7 @@ export function groundMaterial() {
     );
 
     shader.fragmentShader = `
+      uniform float ambLowQuality;
       uniform sampler2D ambGrass;
       uniform sampler2D ambGrassDetail;
       uniform sampler2D ambGrassNormal;
@@ -237,6 +243,18 @@ export function groundMaterial() {
       `#include <color_fragment>
       vec2 p = ambGroundPosition.xz;
 
+      if (ambLowQuality > 0.5) {
+        // Low mode: preserve real albedo textures and organic roads, but avoid the
+        // expensive multi-octave/detail/moss sampling used by Medium+.
+        float lowRoad = ambRoadMask(p);
+        float lowMacro = ambNoise(p*.065 + vec2(3.0,11.0));
+        vec3 lowGrass = texture2D(ambGrass, p/2.8).rgb;
+        vec3 lowSoil = texture2D(ambSoil, p/2.5).rgb;
+        lowGrass *= .91 + lowMacro*.15;
+        lowSoil *= .90 + lowMacro*.12;
+        diffuseColor.rgb = mix(lowGrass, lowSoil, smoothstep(.20,.78,lowRoad));
+      } else {
+
       float macroA = ambFbm(p*.028 + vec2(21.0,-17.0));
       float macroB = ambFbm(p*.075 + vec2(-12.0,9.0));
       float breakup = ambFbm(p*.20 + vec2(8.0,31.0));
@@ -286,6 +304,7 @@ export function groundMaterial() {
       groundColor = mix(groundColor,soil,roadCore);
 
       diffuseColor.rgb = groundColor;
+      }
       `,
     );
 
@@ -296,7 +315,7 @@ export function groundMaterial() {
     shader.fragmentShader = shader.fragmentShader.replace(
       "#include <normal_fragment_maps>",
       `#include <normal_fragment_maps>
-      {
+      if (ambLowQuality < 0.5) {
         vec2 np = ambGroundPosition.xz;
         float nMacro = ambFbm(np*.075 + vec2(-12.0,9.0));
         float nBreak = ambFbm(np*.20 + vec2(8.0,31.0));
