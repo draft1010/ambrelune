@@ -3285,8 +3285,16 @@ body.touch #toolbelt {
   box-shadow: 0 8px 24px rgba(15, 38, 31, .14) !important;
   backdrop-filter: blur(7px) saturate(.9);
   -webkit-backdrop-filter: blur(7px) saturate(.9);
-  pointer-events: none;
+  pointer-events: auto;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
   z-index: 8;
+  transition: width .18s ease, padding .18s ease, border-radius .18s ease, background .18s ease;
+}
+.quest:active {
+  transform: scale(.985);
 }
 .quest small {
   display: block;
@@ -3357,6 +3365,49 @@ body.touch #toolbelt {
 .quest .progress i {
   height: 2px;
 }
+/* Objective can be collapsed to a tiny direction + distance pill. */
+.quest.compact {
+  width: auto !important;
+  min-width: 78px;
+  max-width: 130px !important;
+  padding: 6px 8px !important;
+  border-left-width: 2px !important;
+  border-radius: 11px !important;
+  background: rgba(247, 241, 224, .90) !important;
+}
+.quest.compact > small,
+.quest.compact > h3,
+.quest.compact > p,
+.quest.compact > .progress,
+.quest.compact .quest-direction > b {
+  display: none !important;
+}
+.quest.compact .quest-direction {
+  display: grid;
+  grid-template-columns: 24px auto;
+  gap: 6px;
+  min-height: 26px;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+}
+.quest.compact .quest-direction > span {
+  width: 24px;
+  height: 24px;
+  font-size: 20px;
+}
+.quest.compact .quest-direction > em {
+  color: #435c53;
+  font-size: 10px;
+  font-weight: 700;
+}
+.quest.compact .quest-direction.free {
+  grid-template-columns: 24px;
+}
+.quest.compact .quest-direction.free > em {
+  display: none;
+}
+
 body.modal-open .quest {
   display: none !important;
 }
@@ -3377,4 +3428,13 @@ body.modal-open .quest {
   .quest-direction b { font-size: 8.5px; }
   .quest-direction em { font-size: 7.5px; }
   .quest .progress { margin-top: 6px; }
+  .quest.compact {
+    width: auto !important;
+    min-width: 68px;
+    max-width: 112px !important;
+    padding: 5px 7px !important;
+  }
+  .quest.compact .quest-direction { grid-template-columns: 21px auto; gap: 5px; min-height: 22px; }
+  .quest.compact .quest-direction > span { width: 21px; height: 21px; font-size: 18px; }
+  .quest.compact .quest-direction > em { font-size: 8.5px; }
 }
