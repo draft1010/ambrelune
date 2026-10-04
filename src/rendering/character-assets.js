@@ -340,7 +340,7 @@ export function character(kind = "player", fallbackColor = "#698895") {
     for (const mixer of state.mixers) mixer.update(dt);
     state.alignGrip?.();
     if (t < state.oneShotUntil) return;
-    const desired = running ? "Sprint_Loop" : moving ? "Walk_Loop" : state.idle;
+    const desired = moving ? (running ? "Sprint_Loop" : "Walk_Loop") : state.idle;
     if (desired !== state.current) setAction(desired, false, t);
   };
 
