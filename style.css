@@ -3471,3 +3471,35 @@ body.modal-open #debug{display:none}
 #debug{max-width:calc(100vw - 16px);box-sizing:border-box;overflow-wrap:anywhere;white-space:pre-wrap;left:8px;right:auto;transform:none}
 body:has(#buildbar:not([hidden])) #toolbelt{visibility:hidden!important}#buildbar button{min-height:44px!important}#buildbar{z-index:25;gap:8px}
 .scene-transition{position:fixed;inset:0;z-index:90;pointer-events:none;background:#293d34;animation:scene-reveal .35s ease-out forwards}@keyframes scene-reveal{from{opacity:1}to{opacity:0}}
+
+/* Distinct mobile camera/run hit areas. */
+body.touch #cameraPad{right:calc(16px + env(safe-area-inset-right));bottom:calc(148px + env(safe-area-inset-bottom));width:60px;height:60px;box-sizing:border-box;touch-action:none}
+body.touch #runBtn{right:calc(88px + env(safe-area-inset-right));bottom:calc(148px + env(safe-area-inset-bottom));width:64px;height:60px;min-height:44px;padding:6px;box-sizing:border-box}
+@media(orientation:landscape){
+ body.touch #cameraPad,body.touch #runBtn{bottom:calc(18px + env(safe-area-inset-bottom))}
+ body.touch #toolbelt{max-width:min(50vw,calc(100vw - 330px))!important}
+}
+.tension-track i{left:var(--tension,0%)}
+@media(pointer:coarse),(max-width:650px),(max-height:500px){
+ .fishing-panel{display:grid;grid-template-columns:16px minmax(0,1fr);gap:5px 9px;left:auto;right:max(8px,env(safe-area-inset-right));transform:none;bottom:max(8px,env(safe-area-inset-bottom));width:192px;max-width:calc(100vw - 16px);padding:10px;border-radius:14px;box-shadow:0 4px 16px #17332933}
+ .fishing-panel>.eyebrow{display:none}
+ .fishing-panel h2{grid-column:2;grid-row:1;font-size:15px;line-height:1.15;margin:0}
+ .fishing-panel p{grid-column:2;grid-row:2;font-size:11px;line-height:1.2;margin:0}
+ .fishing-panel .tension-track{grid-column:1;grid-row:1/5;width:16px;height:auto;min-height:140px;align-self:stretch}
+ .fishing-panel .tension-track span{left:0;bottom:27%;width:100%;height:51%}
+ .fishing-panel .tension-track i{left:0;bottom:var(--tension,0%);width:100%;height:5px}
+ .fishing-panel progress{grid-column:2;grid-row:3;height:7px;margin:0;width:100%}
+ .fishing-panel .card-actions{grid-column:2;grid-row:4;display:flex;flex-direction:column;gap:5px;margin:0}
+ .fishing-panel button{min-width:0;width:100%;min-height:44px;padding:6px;font-size:12px;line-height:1.15}
+ body:has(.fishing-panel) #joystick,body:has(.fishing-panel) #runBtn,body:has(.fishing-panel) #interaction,body:has(.fishing-panel) #hint{visibility:hidden}
+ body.touch:has(.fishing-panel) #cameraPad{right:auto;left:max(16px,env(safe-area-inset-left));bottom:max(20px,env(safe-area-inset-bottom))}
+}
+
+/* Smartphone portrait guard: above every game panel, including fishing. */
+#orientationPrompt{position:fixed;inset:0;z-index:10000;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:16px;padding:32px max(24px,env(safe-area-inset-right)) 32px max(24px,env(safe-area-inset-left));background:#244d46;color:#fff7e7;touch-action:manipulation}
+#orientationPrompt[hidden]{display:none}
+#orientationPrompt h2{font-size:26px;margin:0}
+#orientationPrompt p{font-size:16px;line-height:1.6;margin:0;max-width:300px}
+#orientationPrompt .orientation-icon{font-family:system-ui,sans-serif;font-size:76px;line-height:1;color:#e1c588}
+#orientationPrompt button{margin-top:8px;min-height:48px;padding:12px 20px;background:#fff2d8;color:#244d46;border-radius:12px}
+body.portrait-blocked{touch-action:none}
