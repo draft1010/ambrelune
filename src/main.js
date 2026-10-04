@@ -563,50 +563,8 @@ closeModalButton.onclick = (event) => {
   closeModal();
 };
 
-// V34 Android: never hide the modal on pointerdown. Doing that can expose the HUD
-// while the finger is still on the screen; the following pointerup/click then lands
-// on the control underneath and can reopen the Sac immediately ("tap-through").
-// Capture the pointer on the X, keep the modal present for the whole gesture, then
-// close only when that same gesture ends.
-let modalClosePointer = null;
-let modalCloseTouchArmed = false;
-const armModalClose = (event) => {
-  if (event.pointerType && event.pointerType !== "touch" && event.pointerType !== "pen") return;
-  modalClosePointer = event.pointerId ?? null;
-  try { if (event.pointerId != null) closeModalButton.setPointerCapture(event.pointerId); } catch {}
-  event.preventDefault();
-  event.stopPropagation();
-  event.stopImmediatePropagation?.();
-};
-const finishModalClose = (event) => {
-  if (event.pointerType && event.pointerType !== "touch" && event.pointerType !== "pen") return;
-  if (modalClosePointer != null && event.pointerId != null && event.pointerId !== modalClosePointer) return;
-  event.preventDefault();
-  event.stopPropagation();
-  event.stopImmediatePropagation?.();
-  try { if (event.pointerId != null && closeModalButton.hasPointerCapture?.(event.pointerId)) closeModalButton.releasePointerCapture(event.pointerId); } catch {}
-  modalClosePointer = null;
-  closeModal();
-};
-closeModalButton.addEventListener("pointerdown", armModalClose, { capture: true, passive: false });
-closeModalButton.addEventListener("pointerup", finishModalClose, { capture: true, passive: false });
-closeModalButton.addEventListener("pointercancel", () => { modalClosePointer = null; }, { capture: true });
-
-// Fallback for older Android WebViews without reliable Pointer Events.
-closeModalButton.addEventListener("touchstart", (event) => {
-  modalCloseTouchArmed = true;
-  event.preventDefault();
-  event.stopPropagation();
-}, { capture: true, passive: false });
-closeModalButton.addEventListener("touchend", (event) => {
-  if (!modalCloseTouchArmed) return;
-  modalCloseTouchArmed = false;
-  event.preventDefault();
-  event.stopPropagation();
-  closeModal();
-}, { capture: true, passive: false });
-closeModalButton.addEventListener("touchcancel", () => { modalCloseTouchArmed = false; }, { capture: true });
-
+// V35: fermeture via le clic natif du bouton. Le bug réel était CSS :
+// le mode plein écran V31 annulait visuellement l'attribut hidden du modal.
 $("menuBtn").onclick = () => openMenu();
 $("mapBtn").onclick = () => openMenu("map");
 $("actBtn").onclick = interact;

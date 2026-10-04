@@ -4093,7 +4093,7 @@ body.inventory-dragging{overscroll-behavior:none}
    Les 24 cases (6 × 4), les statistiques, les outils, la recherche et la fiche
    de détail tiennent simultanément dans le viewport sans zone défilable. */
 @media (pointer:coarse) {
-  #modal:has(.paper.journal-paper.inventory-paper) {
+  #modal:not([hidden]):has(.paper.journal-paper.inventory-paper) {
     position:fixed !important;
     inset:0 !important;
     display:grid !important;
@@ -4522,4 +4522,13 @@ body.inventory-dragging{overscroll-behavior:none}
   #modal .paper.journal-paper.inventory-paper #closeModal {
     touch-action:manipulation !important;
   }
+}
+
+
+/* ===== V35 · correctif réel fermeture du Sac =====
+   V31 forçait #modal en display:grid!important pour le plein écran tactile.
+   Ce style, plus spécifique que [hidden], empêchait visuellement le modal de disparaître
+   même après closeModal(). Le plein écran ne s'applique désormais que si le modal est ouvert. */
+#modal[hidden] {
+  display:none !important;
 }
