@@ -1686,8 +1686,15 @@ function movePlayer(dt) {
   companion.userData.animate(time, dist > 0.2);
 }
 function updateCamera(dt) {
+  const compact = innerWidth < 950 && innerHeight < 600;
+  const outdoorTps = started && !battle && !interior;
+  // The classic outdoor camera keeps its old minimum distance (21). Zooming
+  // farther in smoothly morphs into a real third-person camera instead of
+  // collapsing the overhead view onto the player.
+  const tpsRaw = outdoorTps ? T.MathUtils.clamp((21 - input.zoom) / 8, 0, 1) : 0;
+  const tpsBlend = tpsRaw * tpsRaw * (3 - 2 * tpsRaw);
   let target,
-    dist = input.zoom * (innerWidth < 950 && innerHeight < 600 ? 0.76 : 1),
+    dist = Math.max(21, input.zoom) * (compact ? 0.76 : 1),
     angle = 0.65 + input.angle;
   if (!started) {
     target = new T.Vector3(-12, 2, -6);
@@ -1721,7 +1728,7 @@ function updateCamera(dt) {
   } else
     target = new T.Vector3(
       state.player.x,
-      surfaceHeight(state.player.x, state.player.z) + 0.8,
+      surfaceHeight(state.player.x, state.player.z) + T.MathUtils.lerp(0.8, 1.45, tpsBlend),
       state.player.z,
     );
   if (battle) {
@@ -1732,14 +1739,52 @@ function updateCamera(dt) {
     battle.stage.update(dt, time);
   }
   if(interior && !battle){dist=7; target.y=player.position.y+1.1;}
-  cameraTarget.lerp(target, 1 - Math.exp(-dt * 4));
-  cameraPos.set(
+  cameraTarget.lerp(target, 1 - Math.exp(-dt * (tpsBlend > .01 ? 7 : 4)));
+
+  const overheadPos = new T.Vector3(
     cameraTarget.x + Math.sin(angle) * dist * 0.75,
     cameraTarget.y + dist * (battle ? 0.35 : interior ? 0.22 : 0.84),
     cameraTarget.z + Math.cos(angle) * dist * 0.75,
   );
+  cameraPos.copy(overheadPos);
+
+  if (outdoorTps && tpsBlend > 0) {
+    // At maximum zoom the camera sits just behind the player. The last part
+    // of the zoom only changes shoulder distance, keeping the transition soft.
+    const close = T.MathUtils.clamp((13 - input.zoom) / 8, 0, 1);
+    const back = T.MathUtils.lerp(compact ? 4.5 : 5.2, compact ? 2.8 : 3.2, close);
+    const tpsPos = new T.Vector3(
+      cameraTarget.x + Math.sin(angle) * back,
+      cameraTarget.y + T.MathUtils.lerp(1.15, 0.78, close),
+      cameraTarget.z + Math.cos(angle) * back,
+    );
+
+    // Keep the TPS camera on the player side of walls, trees and buildings.
+    // Sampling from the player outward is cheap and avoids camera clipping.
+    const dx = tpsPos.x - cameraTarget.x, dz = tpsPos.z - cameraTarget.z;
+    const path = Math.hypot(dx, dz), steps = Math.max(1, Math.ceil(path / .3));
+    let safeT = 1;
+    for (let i = 2; i <= steps; i++) {
+      const f = i / steps;
+      if (f * path < .8) continue;
+      const sx = cameraTarget.x + dx * f, sz = cameraTarget.z + dz * f;
+      if (solidAt(sx, sz, .14)) { safeT = Math.max(.2, (i - 2) / steps); break; }
+    }
+    if (safeT < 1) {
+      tpsPos.x = cameraTarget.x + dx * safeT;
+      tpsPos.z = cameraTarget.z + dz * safeT;
+      tpsPos.y = Math.max(tpsPos.y, cameraTarget.y + .55);
+    }
+    cameraPos.lerpVectors(overheadPos, tpsPos, tpsBlend);
+  }
+
   if(interior&&!battle){cameraPos.x=T.MathUtils.clamp(cameraPos.x,-8.2,8.2);cameraPos.z=T.MathUtils.clamp(cameraPos.z,-7.2,7.2);cameraPos.y=Math.min(cameraPos.y,(state.player.y||0)>3.3?6.8:3.05);}
-  camera.position.lerp(cameraPos, 1 - Math.exp(-dt * 4));
+  const desiredFov = outdoorTps ? T.MathUtils.lerp(38, 52, tpsBlend) : (interior && !battle ? 55 : 38);
+  if (Math.abs(camera.fov - desiredFov) > .02) {
+    camera.fov = T.MathUtils.lerp(camera.fov, desiredFov, 1 - Math.exp(-dt * 8));
+    camera.updateProjectionMatrix();
+  }
+  camera.position.lerp(cameraPos, 1 - Math.exp(-dt * (tpsBlend > .01 ? 8 : 4)));
   camera.lookAt(cameraTarget);
 }
 function updateUI() {

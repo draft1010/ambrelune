@@ -85,7 +85,7 @@ export class Input {
         point.x = e.clientX; point.y = e.clientY;
         if (touches.size === 2) {
           const next = distance();
-          if (pinchDistance > 0 && next > 0) this.zoom = Math.max(21,Math.min(55,this.zoom * pinchDistance / next));
+          if (pinchDistance > 0 && next > 0) this.zoom = Math.max(5,Math.min(55,this.zoom * pinchDistance / next));
           pinchDistance = next;
         } else if (touches.size === 1 && point.camera) this.angle -= dx * 0.008;
         return;
@@ -116,7 +116,7 @@ export class Input {
       "wheel",
       (e) => {
         e.preventDefault();
-        this.zoom = Math.max(21, Math.min(55, this.zoom + e.deltaY * 0.025));
+        this.zoom = Math.max(5, Math.min(55, this.zoom + e.deltaY * 0.025));
       },
       { passive: false },
     );
