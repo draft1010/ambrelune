@@ -55,7 +55,7 @@ export class FishingSession {
   a.setXYZ(0,this.tip.x,this.tip.y,this.tip.z);
   a.setXYZ(1,(this.tip.x+b.x)/2,(this.tip.y+b.y)/2-(this.phase==='reel'?.08:.22),(this.tip.z+b.z)/2);
   a.setXYZ(2,b.x,b.y,b.z);a.needsUpdate=true;this.line.geometry.computeBoundingSphere();
-  this.panel.querySelector('#fishPhase').textContent=title;this.panel.querySelector('#fishHelp').textContent=help;this.panel.querySelector('#fishNeedle').style.left=(this.tension*97)+'%';this.panel.querySelector('#fishProgress').value=this.progress;
+  this.panel.querySelector('#fishPhase').textContent=title;this.panel.querySelector('#fishHelp').textContent=help;this.panel.querySelector('#fishNeedle').style.setProperty('--tension',(this.tension*97)+'%');this.panel.querySelector('#fishProgress').value=this.progress;
  }
  finish(success,message){if(this.finished)return;this.finished=true;this.dispose();this.onFinish(success,message);}
  dispose(){this.rod.removeFromParent();if(this.hiddenTool)this.hiddenTool.visible=true;this.root.removeFromParent();this.line.geometry.dispose();this.line.material.dispose();this.panel.remove();window.removeEventListener('keydown',this.keyDown);window.removeEventListener('keyup',this.keyUp);window.removeEventListener('blur',this.blur);}
