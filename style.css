@@ -3507,3 +3507,5 @@ body.portrait-blocked{touch-action:none}
 /* Tap to toggle running; keep the control at the right screen edge. */
 body.touch #runBtn{right:calc(8px + env(safe-area-inset-right))}
 body.touch #runBtn[aria-pressed="true"]{background:#244d46;color:#fff7e7;border-color:#b2c69a}
+
+body.touch #runBtn{touch-action:none;user-select:none;-webkit-user-select:none}

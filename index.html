@@ -13,7 +13,7 @@
     />
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./assets/icon.svg" />
-    <link rel="stylesheet" href="./style.css?v=18" />
+    <link rel="stylesheet" href="./style.css?v=19" />
     <title>Les Jardins d’Ambrelune</title>
     <script type="importmap">
       {
@@ -148,6 +148,6 @@
       window.addEventListener('error', event => showStartupError(event.message || 'Un fichier du jeu n’a pas été chargé.'));
       window.addEventListener('unhandledrejection', event => showStartupError(event.reason?.message || String(event.reason)));
     </script>
-    <script type="module" src="./src/main.js?v=18" onerror="showStartupError('Impossible de charger le jeu. Vérifiez votre connexion puis actualisez la page.')"></script>
+    <script type="module" src="./src/main.js?v=19" onerror="showStartupError('Impossible de charger le jeu. Vérifiez votre connexion puis actualisez la page.')"></script>
   </body>
 </html>
