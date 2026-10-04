@@ -8,6 +8,7 @@ import {
   bagView,
   craftView,
   gardenView,
+  storageView,
 } from "./rendering/journal-ui.js";
 import { BattleStage } from "./rendering/battle-stage.js";
 import { character, characterActionForTool, preloadCharacterAssets } from "./rendering/character-assets.js?v=22";
@@ -50,6 +51,9 @@ import {
   save,
   craft,
   canAfford,
+  craftCanAfford,
+  craftAvailable,
+  craftOutputFits,
   spend,
   add,
   advanceQuest,
@@ -193,12 +197,12 @@ function leaveHome() {
 function furnishingMenu(index) {
  const b=state.buildings[index];if(!b)return;
  const storage=['chest','shelf','wardrobe'].includes(b.type);
- showModal(`<span class="eyebrow">MAISON & JARDIN</span><h2>${ITEMS[b.type]}</h2><div class="card-actions"><button id="moveObject">Déplacer / tourner</button><button id="recoverObject">Récupérer</button>${b.type==='sleepingBed'?'<button id="restMorning">Jusqu’au matin</button><button id="restEvening">Jusqu’au soir</button>':''}${['workbench','furnace','stove','composter'].includes(b.type)?'<button id="useStation">Fabriquer ici</button>':''}</div>${storage?`<p>Transférez une unité à la fois. Un coffre doit être vidé avant d’être récupéré.</p><div class="storage-grid"><section><h3>Votre sac</h3>${Object.entries(state.inventory).filter(([,n])=>n>0).map(([id,n])=>`<button data-store="${id}">${ITEMS[id]||id} ×${n} →</button>`).join('')}</section><section><h3>Rangement</h3>${Object.entries(b.storage||{}).filter(([,n])=>n>0).map(([id,n])=>`<button data-take="${id}">← ${ITEMS[id]||id} ×${n}</button>`).join('')||'<p>Vide</p>'}</section></div>`:''}`);
+ showModal(`<span class="eyebrow">AMÉNAGEMENT</span><h2>${ITEMS[b.type]}</h2><div class="card-actions"><button id="moveObject">Déplacer / tourner</button><button id="recoverObject">Récupérer</button>${b.type==='sleepingBed'?'<button id="restMorning">Jusqu’au matin</button><button id="restEvening">Jusqu’au soir</button>':''}${['workbench','furnace','stove','composter'].includes(b.type)?'<button id="useStation">Fabriquer ici</button>':''}</div>${storage?storageView(state,b):''}`);
  $('moveObject').onclick=()=>startBuild(b.type,index);
- $('recoverObject').onclick=()=>{if(!recover(state,index))return toast('Videz le rangement avant de le récupérer.');syncWorld();persist();closeModal();};
+ $('recoverObject').onclick=()=>{if(!recover(state,index))return toast('Videz le rangement et libérez une case dans le sac.');syncWorld();persist();closeModal();};
  if($('useStation'))$('useStation').onclick=()=>openMenu('craft');
  for(const [id,morning] of [['restMorning',true],['restEvening',false]]) if($(id))$(id).onclick=()=>{if(morning || state.time>=19)state.day++;state.time=morning?7:19;tickFarm(state,65);state.team.forEach(c=>{c.hp=c.maxHp;c.energy=30;c.status=null;});closeModal();syncWorld();persist();toast('Votre équipe est reposée.');};
- for(const [attr,to] of [['store',true],['take',false]])document.querySelectorAll('[data-'+attr+']').forEach(btn=>btn.onclick=()=>{transfer(state,b,btn.dataset[attr],1,to);persist();furnishingMenu(index);});
+ for(const [attr,to] of [['store',true],['take',false]])document.querySelectorAll('[data-'+attr+']').forEach(btn=>btn.onclick=()=>{if(!transfer(state,b,btn.dataset[attr],1,to))return toast(to?'Ce rangement est plein.':'Votre sac est plein.');persist();furnishingMenu(index);});
 }
 const errors = [];
 window.addEventListener("error", (e) => errors.push(e.message));
@@ -684,7 +688,10 @@ function interact() {
       return;
     }
     const count = a.resourceType === "crystal" ? 2 : 3;
-    add(state, a.resourceType, count);
+    if (!add(state, a.resourceType, count)) {
+      toast("Votre sac est plein. Déposez des objets dans un coffre.");
+      return;
+    }
     state.depleted[a.id] = state.day + 2;
     a.source.mesh.visible = false;
     world.burst(
@@ -785,8 +792,8 @@ function shop() {
       (b.onclick = () => {
         const price = +b.dataset.price;
         if (state.coins >= price) {
+          if (!add(state, b.dataset.buy)) return toast("Votre sac est plein. Utilisez un coffre avant d’acheter.");
           state.coins -= price;
-          add(state, b.dataset.buy);
           audio.play();
           persist();
           shop();
@@ -836,13 +843,13 @@ function home() {
 function fishing() {
  if(fishingSession||interior)return;
  input.target=null;input.route=[];input.keys.clear();
- fishingSession=new FishingSession(scene,player,riverX(state.player.z)-1,state.player.z,(success,message)=>{fishingSession=null;if(success){add(state,'fish');audio.play('harvest');persist();}toast(message);});
+ fishingSession=new FishingSession(scene,player,riverX(state.player.z)-1,state.player.z,(success,message)=>{fishingSession=null;if(success){if(!add(state,'fish'))return toast('Votre sac est plein. Le poisson est relâché.');audio.play('harvest');persist();}toast(message);});
 }
 const tabs = [
   ["team", "Compagnons", "Vos liens et votre équipe active"],
   ["bag", "Sac", "Ressources, récoltes et objets"],
   ["craft", "Fabriquer", "Recettes et créations"],
-  ["build", "Jardin", "Aménagement de votre propriété"],
+  ["build", "Aménagement", "Maison, mobilier et extérieur"],
   ["map", "Carte", "Lieux découverts et voyage rapide"],
   ["journal", "Histoire", "Votre progression dans les Jardins"],
   ["bestiary", "Bestiaire", "Créatures des terres de la Sève"],
@@ -869,7 +876,7 @@ function openMenu(tab = modalTab) {
   let html = "";
   if (tab === "team") html = teamView(state);
   if (tab === "bag") html = bagView(state);
-  if (tab === "craft") html = craftView(state, canAfford);
+  if (tab === "craft") html = craftView(state, craftCanAfford, craftAvailable, craftOutputFits);
   if (tab === "build") html = gardenView(state);
   if (tab === "map")
     html = `<div class="menu-lead"><div><span class="section-kicker">TERRES DE LA SÈVE</span><h3>Votre carte d’exploration</h3><p>Les chemins et les lieux se révèlent au fil de vos pas. Sélectionnez un lieu découvert pour y poser votre repère.</p></div><div class="menu-stat"><small>DÉCOUVERTS</small><b>${state.discovered.length}</b></div></div><div class="map-frame"><canvas class="mapLarge" id="largeMap" width="760" height="430"></canvas><div class="map-compass">N</div></div><div class="mapLegend premium-map-legend">${LANDMARKS.filter(
@@ -1000,7 +1007,8 @@ function openMenu(tab = modalTab) {
     };
   document.querySelectorAll('[data-equip]').forEach(b=>b.onclick=()=>{closeModal();selectTool(b.dataset.equip);});
   if($('craftFilter'))$('craftFilter').onchange=e=>document.querySelectorAll('.recipe-card').forEach(card=>card.hidden=e.target.value==='ready'?!card.classList.contains('recipe-ready'):e.target.value!=='all'&&card.dataset.category!==e.target.value);
-  if($('inventorySearch'))$('inventorySearch').oninput=e=>{document.querySelectorAll('.inventory-card').forEach(card=>card.hidden=!card.textContent.toLocaleLowerCase().includes(e.target.value.toLocaleLowerCase()));};
+  if($('inventorySearch'))$('inventorySearch').oninput=e=>{const q=e.target.value.toLocaleLowerCase();document.querySelectorAll('.inventory-slot.filled').forEach(slot=>slot.classList.toggle('search-hidden',!!q&&!slot.dataset.inventoryName.includes(q)));};
+  document.querySelectorAll('[data-inventory-item]').forEach(slot=>slot.onclick=()=>{const id=slot.dataset.inventoryItem;document.querySelectorAll('[data-inventory-item]').forEach(s=>s.classList.toggle('selected',s.dataset.inventoryItem===id));document.querySelectorAll('[data-inventory-detail]').forEach(d=>d.hidden=d.dataset.inventoryDetail!==id);});
   document.querySelectorAll('[data-seed]').forEach(b=>b.onclick=()=>{state.selectedSeed=b.dataset.seed;tool='hoe';equipTool();closeModal();toast('Semences sélectionnées : '+ITEMS[state.selectedSeed]);});
   document.querySelectorAll('[data-eat]').forEach(b=>b.onclick=()=>{const id=b.dataset.eat,c=state.team[0];if(spend(state,{[id]:1})){c.hp=Math.min(c.maxHp,c.hp+FOOD[id]);if(id==='grilledFish')c.energy=Math.min(30,c.energy+10);persist();openMenu('bag');}});
   document.querySelectorAll('[data-edit-object]').forEach(b=>b.onclick=()=>{const i=+b.dataset.editObject;if(spaceOf(state.buildings[i])!==(state.location||'world'))return toast('Rejoignez le lieu où cet objet est installé.');furnishingMenu(i);});
@@ -1520,8 +1528,10 @@ function victory() {
   state.stats.battles++;
   if (b.enemy.id === "gardien") {
     state.flags.guardian = true;
-    add(state, "crystal", 8);
-    add(state, "seed", 8);
+    // Story rewards are never lost: if the bag is already full they may
+    // temporarily put it over capacity until the player unloads a chest.
+    state.inventory.crystal = (state.inventory.crystal || 0) + 8;
+    state.inventory.seed = (state.inventory.seed || 0) + 8;
   }
   b.wild.cooldown = 90;
   endBattle(

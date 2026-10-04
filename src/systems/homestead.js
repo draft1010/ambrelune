@@ -7,6 +7,42 @@ export const CROPS = {
   pumpkinSeed: { name: 'Courge', item: 'pumpkin', seconds: 155, color: '#d7a14f' },
 };
 export const BUILDABLES = ['lamp','fence','bench','bed','workbench','sleepingBed','chest','furnace','table','chair','shelf','rug','stove','wardrobe','composter'];
+export const BAG_SLOTS = 24;
+export const STORAGE_SLOTS = { chest: 30, shelf: 18, wardrobe: 24 };
+export function stackLimit(id) {
+  if (BUILDABLES.includes(id)) return 5;
+  if (['wood','stone','fiber','crystal','plank','ore','coal','iron','cloth','flour'].includes(id)) return 50;
+  return 20;
+}
+export function slotsUsed(container = {}) {
+  return Object.entries(container).reduce((sum,[id,n]) => sum + (n > 0 ? Math.ceil(n / stackLimit(id)) : 0), 0);
+}
+export function slotStacks(container = {}, capacity = BAG_SLOTS) {
+  const out = [];
+  for (const [id,raw] of Object.entries(container)) {
+    let n = Math.max(0, Math.floor(raw || 0));
+    const lim = stackLimit(id);
+    while (n > 0) { const count = Math.min(lim,n); out.push({id,count,limit:lim}); n -= count; }
+  }
+  while (out.length < capacity) out.push(null);
+  return out;
+}
+export function canStore(container,id,count,capacity=BAG_SLOTS) {
+  if (!Number.isFinite(count) || count < 0) return false;
+  if (!count) return true;
+  const lim = stackLimit(id);
+  const existing = Math.max(0, Math.floor(container?.[id] || 0));
+  const used = slotsUsed(container);
+  const partial = existing > 0 && existing % lim ? lim - (existing % lim) : 0;
+  const freeSlots = Math.max(0, capacity - used);
+  return count <= partial + freeSlots * lim;
+}
+export function addToContainer(container,id,count,capacity=BAG_SLOTS) {
+  if (!canStore(container,id,count,capacity)) return false;
+  container[id] = (container[id] || 0) + count;
+  return true;
+}
+export function storageCapacity(type) { return STORAGE_SLOTS[type] || 0; }
 export const LABELS = { wheatSeed:'Graines de blé', carrotSeed:'Graines de carotte', flaxSeed:'Graines de lin', pumpkinSeed:'Graines de courge', wheat:'Blé', carrot:'Carottes', flax:'Lin', pumpkin:'Courges', ore:'Minerai de fer', coal:'Charbon', iron:'Lingots de fer', cloth:'Toile de lin', flour:'Farine', bread:'Pain', stew:'Ragoût du jardin', grilledFish:'Poisson grillé', sleepingBed:'Lit en bois', chest:'Coffre', furnace:'Fonderie', table:'Table', chair:'Chaise', shelf:'Étagère', rug:'Tapis tissé', stove:'Four de cuisine', wardrobe:'Armoire', composter:'Composteur' };
 export const EXTRA_RECIPES = [
  ['coal','Charbon de bois',{wood:3},2,'Combustible pour la fonderie.'],
@@ -50,12 +86,16 @@ export function transfer(s,b,id,count,toChest) {
  if(!['chest','shelf','wardrobe'].includes(b?.type) || !Number.isInteger(count)||count<1) return false;
  b.storage ||= {};
  const from=toChest?s.inventory:b.storage, to=toChest?b.storage:s.inventory;
- if((from[id]||0)<count) return false;
- from[id]-=count; to[id]=(to[id]||0)+count; return true;
+ const capacity=toChest?storageCapacity(b.type):BAG_SLOTS;
+ if((from[id]||0)<count || !canStore(to,id,count,capacity)) return false;
+ from[id]-=count;
+ if(from[id]<=0) delete from[id];
+ to[id]=(to[id]||0)+count;
+ return true;
 }
 export function recover(s,index) {
  const b=s.buildings[index];
- if(!b || Object.values(b.storage||{}).some(n=>n>0)) return false;
+ if(!b || Object.values(b.storage||{}).some(n=>n>0) || !canStore(s.inventory,b.type,1,BAG_SLOTS)) return false;
  s.inventory[b.type]=(s.inventory[b.type]||0)+1;
  s.buildings.splice(index,1); return true;
 }

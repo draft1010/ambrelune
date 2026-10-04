@@ -1,4 +1,4 @@
-import { CROPS, stationAvailable, footprint, spaceOf } from "./homestead.js";
+import { CROPS, stationAvailable, footprint, spaceOf, BAG_SLOTS, canStore, addToContainer } from "./homestead.js";
 import { species, QUESTS, ITEMS } from "./data.js";
 export const SAVE_KEY = "ambrelune.save.v1";
 export function makeCreature(id, level = 3) {
@@ -111,11 +111,59 @@ export function spend(s, cost) {
   return true;
 }
 export function add(s, id, n = 1) {
-  s.inventory[id] = (s.inventory[id] || 0) + n;
+  return addToContainer(s.inventory, id, n, BAG_SLOTS);
+}
+export function canReceiveAll(s, entries) {
+  const copy = { ...s.inventory };
+  for (const [id,n] of entries) if (n > 0 && !addToContainer(copy,id,n,BAG_SLOTS)) return false;
+  return true;
+}
+function craftStorages(s) {
+  const loc = s.location || "world";
+  if (loc === "world") return [];
+  return s.buildings.filter((b) => ['chest','shelf','wardrobe'].includes(b.type) && spaceOf(b) === loc && b.storage);
+}
+export function craftAvailable(s,id) {
+  return (s.inventory[id] || 0) + craftStorages(s).reduce((sum,b) => sum + (b.storage?.[id] || 0), 0);
+}
+export function craftCanAfford(s,cost) {
+  return Object.entries(cost).every(([id,n]) => craftAvailable(s,id) >= n);
+}
+export function craftOutputFits(s,r) {
+  if (!r || !craftCanAfford(s,r.cost)) return false;
+  const bag = { ...s.inventory };
+  for (const [id,n] of Object.entries(r.cost)) {
+    const fromBag = Math.min(bag[id] || 0,n);
+    if (fromBag) {
+      bag[id] -= fromBag;
+      if (bag[id] <= 0) delete bag[id];
+    }
+  }
+  return canStore(bag,r.id,r.count,BAG_SLOTS);
+}
+function spendCraft(s,cost) {
+  if (!craftCanAfford(s,cost)) return false;
+  const storages = craftStorages(s);
+  for (const [id,n] of Object.entries(cost)) {
+    let left = n;
+    const fromBag = Math.min(s.inventory[id] || 0,left);
+    if (fromBag) {
+      s.inventory[id] -= fromBag;
+      left -= fromBag;
+    }
+    for (const b of storages) {
+      if (!left) break;
+      const take = Math.min(b.storage?.[id] || 0,left);
+      if (!take) continue;
+      b.storage[id] -= take;
+      left -= take;
+    }
+  }
+  return true;
 }
 export function craft(s, r) {
-  if (!r || !stationAvailable(s,r.station) || !spend(s, r.cost)) return false;
-  add(s, r.id, r.count);
+  if (!r || !stationAvailable(s,r.station) || !craftCanAfford(s,r.cost) || !craftOutputFits(s,r)) return false;
+  if (!spendCraft(s, r.cost) || !add(s, r.id, r.count)) return false;
   if (r.id === "potion") s.flags.brewed = true;
   advanceQuest(s);
   return true;
@@ -159,9 +207,9 @@ export function farmAction(s, p, tool) {
     if (p.stage === 4) {
       const crop = CROPS[p.seed || "seed"] || CROPS.seed;
       const item = p.fertilized && crop.item === "crop" ? "quality" : crop.item;
-      add(s, item, p.fertilized ? 2 : 1);
-      add(s, crop.item, p.fertilized && crop.item === "crop" ? 1 : 0);
-      add(s, p.seed || "seed", 1);
+      const rewards = [[item,p.fertilized ? 2 : 1],[crop.item,p.fertilized && crop.item === "crop" ? 1 : 0],[p.seed || "seed",1]].filter(([,n])=>n>0);
+      if (!canReceiveAll(s,rewards)) return "Votre sac est plein. Libérez une case ou utilisez un coffre avant de récolter.";
+      for (const [id,n] of rewards) add(s,id,n);
       s.stats.harvested++;
       p.stage = 0;
       p.growth = 0;

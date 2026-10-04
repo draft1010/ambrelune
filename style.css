@@ -3550,3 +3550,27 @@ body.touch #runBtn{right:calc(8px + env(safe-area-inset-right))}
 body.touch #runBtn[aria-pressed="true"]{background:#244d46;color:#fff7e7;border-color:#b2c69a}
 
 body.touch #runBtn{touch-action:none;user-select:none;-webkit-user-select:none}
+
+/* V27 — inventaire à cases + rangements */
+.inventory-layout{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(220px,.75fr);gap:20px;align-items:start}
+.inventory-slot-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:7px}
+.inventory-slot{position:relative;aspect-ratio:1/1;min-width:0;border:1px solid rgba(63,82,69,.22);border-radius:9px;background:linear-gradient(145deg,rgba(245,240,219,.78),rgba(216,219,197,.72));box-shadow:inset 0 1px 0 rgba(255,255,255,.55);overflow:hidden;color:#385248;padding:4px;display:grid;place-items:center}
+.inventory-slot.empty{opacity:.48;pointer-events:none}
+.inventory-slot.empty i{position:absolute;left:6px;top:4px;font:500 9px system-ui,sans-serif;color:rgba(54,75,65,.38);font-style:normal}
+.inventory-slot.filled{cursor:pointer;transition:transform .12s ease,border-color .12s ease,box-shadow .12s ease}
+.inventory-slot.filled:hover,.inventory-slot.filled.selected{transform:translateY(-1px);border-color:#4e7667;box-shadow:0 0 0 2px rgba(78,118,103,.14),inset 0 1px 0 rgba(255,255,255,.65)}
+.inventory-slot .item-art{width:76%;height:76%;max-width:78px;max-height:78px;filter:drop-shadow(0 4px 4px rgba(45,57,45,.14));pointer-events:none}
+.inventory-slot small{position:absolute;left:5px;right:5px;bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font:600 8px/1.2 system-ui,sans-serif;color:#435c51;text-align:center;pointer-events:none}
+.slot-quantity{position:absolute;right:5px;top:5px;min-width:20px;height:20px;padding:0 5px;border-radius:10px;display:grid;place-items:center;background:#284d42;color:#fff4d3;border:1px solid rgba(255,255,255,.22);font:700 10px system-ui,sans-serif;box-shadow:0 2px 5px rgba(26,47,40,.22);pointer-events:none}
+.inventory-detail-panel{min-height:260px;border:1px solid rgba(63,82,69,.15);border-radius:14px;background:rgba(255,252,239,.54);padding:14px;position:sticky;top:0}
+.inventory-detail[hidden]{display:none!important}.inventory-detail .object-figure{min-height:118px}.inventory-detail .item-art{width:108px;height:104px}.inventory-detail .object-copy{text-align:center}.inventory-detail .object-description{text-align:center;min-height:0}
+.inventory-detail-meta{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0}.inventory-detail-meta span{border:1px solid rgba(63,82,69,.13);border-radius:9px;padding:8px;display:flex;flex-direction:column;gap:2px;font:600 9px system-ui,sans-serif;color:#6a786c}.inventory-detail-meta b{font-size:15px;color:#2f5147}
+.inventory-detail>button{width:100%;min-height:42px}
+.inventory-warning{margin:10px 0 0;padding:9px 11px;border-radius:9px;background:#8d55321a;color:#7b4b33;font-weight:650}.over-capacity{color:#8c4d37!important}
+.inventory-slot.search-hidden{opacity:.18;filter:grayscale(.65)}
+.inventory-slot-search{margin-bottom:14px}
+
+.storage-inventory{margin-top:16px}.storage-help{margin:0 0 12px;color:#607066}.storage-columns{display:grid;grid-template-columns:1fr 1fr;gap:16px}.storage-panel{min-width:0;border:1px solid rgba(63,82,69,.15);border-radius:14px;padding:12px;background:rgba(255,252,239,.48)}.storage-panel header{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:10px}.storage-panel h3{margin:0}.storage-panel header span{font:650 11px system-ui,sans-serif;color:#64746b}.storage-slots{grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}.storage-slots .inventory-slot{border-radius:8px}.storage-slots .inventory-slot small{display:none}.storage-slots .inventory-slot .item-art{width:80%;height:80%}
+
+@media(max-width:900px){.inventory-layout{grid-template-columns:1fr}.inventory-detail-panel{position:static}.inventory-slot-grid{grid-template-columns:repeat(5,minmax(0,1fr))}.storage-columns{grid-template-columns:1fr}.storage-slots{grid-template-columns:repeat(6,minmax(0,1fr))}}
+@media(max-width:650px){.inventory-slot-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}.inventory-slot{border-radius:7px}.inventory-slot small{font-size:7px}.slot-quantity{right:3px;top:3px;min-width:18px;height:18px;font-size:9px}.inventory-detail-panel{padding:10px}.storage-panel{padding:9px}.storage-slots{grid-template-columns:repeat(5,minmax(0,1fr))}.storage-columns{gap:10px}.storage-help{font-size:12px}}

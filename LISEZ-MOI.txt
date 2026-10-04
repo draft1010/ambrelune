@@ -1,0 +1,16 @@
+Ambrelune V27 — inventaire à cases et rangements
+
+Base : V25 officielle. La V26 abandonnée n'a pas été utilisée.
+
+Modifications :
+- Menu « Jardin » renommé « Aménagement ».
+- Sac limité à 24 cases.
+- Piles : ressources principales 50, graines/récoltes/consommables 20, mobilier 5.
+- Inventaire présenté sous forme de grille à cases.
+- Coffre : 30 cases ; étagère : 18 ; armoire : 24.
+- Rangements présentés eux aussi sous forme de grilles.
+- Cliquer/toucher une case d'un rangement transfère 1 objet.
+- Le jeu bloque les nouvelles collectes/achats si le sac est plein.
+- Une récolte n'est pas perdue si le sac est plein.
+- Dans la maison, la fabrication peut utiliser automatiquement les ressources des rangements présents dans la maison.
+- Cache service worker : ambrelune-v27-inventory-slots.

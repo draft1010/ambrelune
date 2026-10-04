@@ -1,4 +1,4 @@
-import { CROPS, BUILDABLES, FOOD, LABELS, stationAvailable } from '../systems/homestead.js';
+import { CROPS, BUILDABLES, FOOD, LABELS, stationAvailable, BAG_SLOTS, slotStacks, slotsUsed, storageCapacity, stackLimit } from '../systems/homestead.js';
 import {
   ITEMS,
   RECIPES,
@@ -119,30 +119,45 @@ export function teamView(state) {
     .join("")}</div><div class="menu-footer-action"><div><span class="section-kicker">AIDE AU JARDIN</span><p>${species(state.team[0].id).job || "Ce compagnon veille sur les cultures."}</p></div><button id="helper" class="premium-action">${state.flags.helper ? "Rappeler mon compagnon" : "L’affecter au jardin"}</button></div>`;
 }
 
-export function bagView(state) {
-  const entries = Object.entries(state.inventory).filter(([, n]) => n > 0);
-  const total = entries.reduce((sum, [, n]) => sum + n, 0);
-  const sections = ITEM_SECTIONS.map(([title, ids]) => {
-    const items = ids.filter((id) => (state.inventory[id] || 0) > 0);
-    if (!items.length) return "";
-    return `<section class="inventory-section"><div class="inventory-section-title"><span>${title}</span><small>${items.reduce((s, id) => s + (state.inventory[id] || 0), 0)} objet(s)</small></div><div class="object-grid bag-grid">${items
-      .map(
-        (id) =>
-          `<article class="object-card inventory-card">${figure(id, null, state.inventory[id])}<p class="object-description">${ITEM_META[id]?.[1] || "Ressource conservée pour vos prochaines créations."}</p>${CROPS[id]?`<button data-seed="${id}">${state.selectedSeed===id?"Sélectionnée":"Semer"}</button>`:FOOD[id]?`<button data-eat="${id}">Nourrir le compagnon</button>`:BUILDABLES.includes(id)?`<button data-build="${id}">Placer</button>`:""}</article>`,
-      )
-      .join("")}</div></section>`;
-  }).join("");
-  return `<div class="menu-lead"><div><span class="section-kicker">INVENTAIRE</span><h3>Le sac d’Ambrelune</h3><p>Tout ce que vous récoltez, fabriquez ou trouvez pendant votre voyage est rangé ici.</p></div><div class="inventory-summary"><div><small>OBJETS</small><b>${total}</b></div><div><small>AMBRES</small><b>◈ ${state.coins}</b></div></div></div><div class="equipment-strip" aria-label="Outils permanents">${[["hand","Lien"],["axe","Hache"],["pick","Pioche"],["hoe","Cultiver"],["water","Arrosoir"]].map(([id,label])=>`<button data-equip="${id}">${label}</button>`).join("")}</div><label class="inventory-search">Rechercher <input id="inventorySearch" type="search" placeholder="Bois, graines, mobilier…"></label>${sections || '<div class="empty premium-empty"><b>Votre sac est vide.</b><span>Explorez les jardins pour récolter vos premières ressources.</span></div>'}`;
+function inventorySlot(stack, index, attrs = '') {
+  if (!stack) return `<span class="inventory-slot empty" aria-hidden="true"><i>${index + 1}</i></span>`;
+  const {id,count,limit}=stack;
+  return `<button class="inventory-slot filled" data-inventory-item="${id}" data-inventory-name="${(ITEMS[id]||id).toLocaleLowerCase()}" ${attrs} title="${ITEMS[id]} · ${count}/${limit}">${itemArt(id)}<span class="slot-quantity">${count}</span><small>${ITEMS[id]}</small></button>`;
 }
 
-export function craftView(state, canAfford) {
-  return `<div class="menu-lead"><div><span class="section-kicker">ATELIER</span><h3>Façonner, tisser, construire</h3><p>Chaque création indique votre stock réel et les ressources nécessaires.</p></div><div class="menu-stat"><small>RECETTES</small><b>${RECIPES.length}</b></div></div><label class="inventory-search">Afficher <select id="craftFilter"><option value="all">Toutes les recettes</option><option value="ready">Fabricables maintenant</option><option value="furniture">Mobilier et ateliers</option><option value="food">Cuisine et soins</option><option value="resource">Matériaux et jardin</option></select></label><div class="object-grid recipe-grid">${RECIPES.map((r) => {
-    const hasMaterials=canAfford(state,r.cost),hasStation=stationAvailable(state,r.station);
-    const ready = hasMaterials && hasStation;
-    return `<article data-category="${BUILDABLES.includes(r.id)?"furniture":FOOD[r.id]||r.id==="potion"?"food":"resource"}" class="object-card recipe-card ${ready ? "recipe-ready" : ""}"><div class="recipe-state">${ready ? "PRÊT" : !hasStation ? "ATELIER REQUIS" : "RESSOURCES MANQUANTES"}</div>${figure(r.id, r.name, r.count)}<p class="object-description">${r.desc}${r.station ? `<br><small>À proximité : ${ITEMS[r.station]}</small>` : ""}</p><div class="ingredients">${Object.entries(r.cost)
+function itemAction(id,state) {
+  if (CROPS[id]) return `<button data-seed="${id}">${state.selectedSeed===id?"Sélectionnée":"Sélectionner pour semer"}</button>`;
+  if (FOOD[id]) return `<button data-eat="${id}">Nourrir le compagnon</button>`;
+  if (BUILDABLES.includes(id)) return `<button data-build="${id}">Placer</button>`;
+  return '';
+}
+
+export function bagView(state) {
+  const used=slotsUsed(state.inventory);
+  const stacks=slotStacks(state.inventory,Math.max(BAG_SLOTS,used));
+  const unique=[...new Set(stacks.filter(Boolean).map(s=>s.id))];
+  const first=unique[0];
+  const total=Object.values(state.inventory).reduce((sum,n)=>sum+(n||0),0);
+  const details=unique.map((id,i)=>`<article class="inventory-detail" data-inventory-detail="${id}" ${i?'hidden':''}>${figure(id,null,state.inventory[id])}<p class="object-description">${ITEM_META[id]?.[1]||"Ressource conservée pour vos prochaines créations."}</p><div class="inventory-detail-meta"><span>PILE MAX.<b>${stackLimit(id)}</b></span><span>EN SAC<b>${state.inventory[id]||0}</b></span></div>${itemAction(id,state)}</article>`).join('');
+  return `<div class="menu-lead"><div><span class="section-kicker">INVENTAIRE</span><h3>Le sac d’Ambrelune</h3><p>24 cases. Les objets identiques s’empilent jusqu’à leur limite.</p></div><div class="inventory-summary"><div class="${used>BAG_SLOTS?'over-capacity':''}"><small>CASES</small><b>${used} / ${BAG_SLOTS}</b></div><div><small>OBJETS</small><b>${total}</b></div><div><small>AMBRES</small><b>◈ ${state.coins}</b></div></div></div><div class="equipment-strip" aria-label="Outils permanents">${[["hand","Lien"],["axe","Hache"],["pick","Pioche"],["hoe","Cultiver"],["water","Arrosoir"]].map(([id,label])=>`<button data-equip="${id}">${label}</button>`).join("")}</div><label class="inventory-search inventory-slot-search">Rechercher <input id="inventorySearch" type="search" placeholder="Bois, graines, mobilier…"></label><div class="inventory-layout"><div><div class="inventory-slot-grid bag-slots">${stacks.map((st,i)=>inventorySlot(st,i)).join('')}</div>${used>BAG_SLOTS?'<p class="inventory-warning">Sac en surcapacité : déposez des objets dans un coffre avant de pouvoir en ramasser davantage.</p>':''}</div><aside class="inventory-detail-panel">${details||'<div class="empty premium-empty"><b>Votre sac est vide.</b><span>Explorez Ambrelune pour trouver vos premières ressources.</span></div>'}</aside></div>`;
+}
+
+export function storageView(state,b) {
+  const cap=storageCapacity(b.type);
+  const bagUsed=slotsUsed(state.inventory), storageUsed=slotsUsed(b.storage||{});
+  const bagStacks=slotStacks(state.inventory,Math.max(BAG_SLOTS,bagUsed));
+  const chestStacks=slotStacks(b.storage||{},Math.max(cap,storageUsed));
+  return `<div class="storage-inventory"><p class="storage-help">Touchez une case pour transférer <b>1 objet</b>. Les piles se regroupent automatiquement.</p><div class="storage-columns"><section class="storage-panel"><header><h3>Votre sac</h3><span class="${bagUsed>BAG_SLOTS?'over-capacity':''}">${bagUsed}/${BAG_SLOTS} cases</span></header><div class="inventory-slot-grid storage-slots">${bagStacks.map((st,i)=>inventorySlot(st,i,st?`data-store="${st.id}"`:'')).join('')}</div></section><section class="storage-panel"><header><h3>${ITEMS[b.type]||'Rangement'}</h3><span class="${storageUsed>cap?'over-capacity':''}">${storageUsed}/${cap} cases</span></header><div class="inventory-slot-grid storage-slots">${chestStacks.map((st,i)=>inventorySlot(st,i,st?`data-take="${st.id}"`:'')).join('')}</div></section></div></div>`;
+}
+
+export function craftView(state, canAfford, available=(s,id)=>s.inventory[id]||0, outputFits=()=>true) {
+  return `<div class="menu-lead"><div><span class="section-kicker">ATELIER</span><h3>Façonner, tisser, construire</h3><p>Chaque création indique votre stock réel et les ressources nécessaires. Dans la maison, vos rangements sont utilisés automatiquement.</p></div><div class="menu-stat"><small>RECETTES</small><b>${RECIPES.length}</b></div></div><label class="inventory-search">Afficher <select id="craftFilter"><option value="all">Toutes les recettes</option><option value="ready">Fabricables maintenant</option><option value="furniture">Mobilier et ateliers</option><option value="food">Cuisine et soins</option><option value="resource">Matériaux et jardin</option></select></label><div class="object-grid recipe-grid">${RECIPES.map((r) => {
+    const hasMaterials=canAfford(state,r.cost),hasStation=stationAvailable(state,r.station),hasRoom=outputFits(state,r);
+    const ready = hasMaterials && hasStation && hasRoom;
+    return `<article data-category="${BUILDABLES.includes(r.id)?"furniture":FOOD[r.id]||r.id==="potion"?"food":"resource"}" class="object-card recipe-card ${ready ? "recipe-ready" : ""}"><div class="recipe-state">${ready ? "PRÊT" : !hasStation ? "ATELIER REQUIS" : !hasMaterials ? "RESSOURCES MANQUANTES" : "SAC PLEIN"}</div>${figure(r.id, r.name, r.count)}<p class="object-description">${r.desc}${r.station ? `<br><small>À proximité : ${ITEMS[r.station]}</small>` : ""}</p><div class="ingredients">${Object.entries(r.cost)
       .map(
         ([id, n]) =>
-          `<div class="ingredient ${(state.inventory[id] || 0) < n ? "missing" : ""}" title="${ITEMS[id]} : ${state.inventory[id] || 0} disponibles, ${n} nécessaires">${itemArt(id)}<small>${ITEMS[id]}</small><b>${state.inventory[id] || 0}<em>/ ${n}</em></b></div>`,
+          `<div class="ingredient ${available(state,id) < n ? "missing" : ""}" title="${ITEMS[id]} : ${available(state,id)} disponibles, ${n} nécessaires">${itemArt(id)}<small>${ITEMS[id]}</small><b>${available(state,id)}<em>/ ${n}</em></b></div>`,
       )
       .join("")}</div><button data-craft="${RECIPES.indexOf(r)}" aria-label="Fabriquer ${r.name}" ${!ready ? "disabled" : ""}>Fabriquer <span>→</span></button></article>`;
   }).join("")}</div>`;
@@ -150,10 +165,10 @@ export function craftView(state, canAfford) {
 
 export function gardenView(state) {
   const buildables = BUILDABLES;
-  return `<div class="menu-lead"><div><span class="section-kicker">PROPRIÉTÉ</span><h3>Aménager votre jardin</h3><p>Placez vos créations dans la maison ou au jardin. Appui prolongé sur mobile ou double-clic sur PC pour les déplacer et les récupérer.</p></div><div class="menu-stat"><small>INSTALLÉS</small><b>${state.buildings.length}</b></div></div><div class="object-grid garden-grid">${buildables
+  return `<div class="menu-lead"><div><span class="section-kicker">PROPRIÉTÉ</span><h3>Aménager votre propriété</h3><p>Placez vos créations dans la maison ou au jardin. Appui prolongé sur mobile ou double-clic sur PC pour les déplacer et les récupérer.</p></div><div class="menu-stat"><small>INSTALLÉS</small><b>${state.buildings.length}</b></div></div><div class="object-grid garden-grid">${buildables
     .map(
       (id) =>
         `<article class="object-card garden-card">${figure(id, null, state.inventory[id] || 0)}<p class="object-description">${ITEM_META[id]?.[1] || "Aménagement pour votre propriété."}</p><button data-build="${id}" aria-label="Placer ${ITEMS[id]}" ${!state.inventory[id] ? "disabled" : ""}>Placer <span>→</span></button></article>`,
     )
-    .join("")}<article class="object-card garden-card">${figure("fertilizer", null, state.inventory.fertilizer || 0)}<p class="object-description">${ITEM_META.fertilizer[1]}</p><button id="fertilize" ${!state.inventory.fertilizer ? "disabled" : ""}>Fertiliser <span>→</span></button></article></div>${state.buildings.length ? `<div class="collection-head"><div><span class="section-kicker">DÉJÀ INSTALLÉ</span><h3>Votre jardin aujourd’hui</h3></div><small>${state.buildings.length} aménagement(s)</small></div><div class="object-grid installed-grid">${state.buildings.map((b, i) => `<article class="object-card installed-card">${figure(b.type)}<small>${b.location && b.location!=="world" ? "Maison · " + ((b.y||0)>3?"étage":"rez-de-chaussée") : "Jardin"}</small><button data-edit-object="${i}">Gérer / déplacer</button><button data-remove="${i}" aria-label="Récupérer ${ITEMS[b.type]}">Récupérer</button></article>`).join("")}</div>` : ""}`;
+    .join("")}<article class="object-card garden-card">${figure("fertilizer", null, state.inventory.fertilizer || 0)}<p class="object-description">${ITEM_META.fertilizer[1]}</p><button id="fertilize" ${!state.inventory.fertilizer ? "disabled" : ""}>Fertiliser <span>→</span></button></article></div>${state.buildings.length ? `<div class="collection-head"><div><span class="section-kicker">DÉJÀ INSTALLÉ</span><h3>Votre propriété aujourd’hui</h3></div><small>${state.buildings.length} aménagement(s)</small></div><div class="object-grid installed-grid">${state.buildings.map((b, i) => `<article class="object-card installed-card">${figure(b.type)}<small>${b.location && b.location!=="world" ? "Maison · " + ((b.y||0)>3?"étage":"rez-de-chaussée") : "Jardin"}</small><button data-edit-object="${i}">Gérer / déplacer</button><button data-remove="${i}" aria-label="Récupérer ${ITEMS[b.type]}">Récupérer</button></article>`).join("")}</div>` : ""}`;
 }

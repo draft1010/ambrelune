@@ -1,4 +1,4 @@
-const CACHE = "ambrelune-v25-dry-planting-fix";
+const CACHE = "ambrelune-v27-inventory-slots";
 const FILES = [
   "./src/systems/encounters.js",
   "./src/rendering/fountain.js",
