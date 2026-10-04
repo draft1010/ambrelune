@@ -323,18 +323,13 @@ function setupActors() {
     state.player.z + 1,
   );
 }
-function requestGameFullscreen() {
-  // Browsers only permit fullscreen from a user gesture. begin() is called directly
-  // from the starter/continue tap, so request it here as early as possible.
-  const root = document.documentElement;
-  if (!document.fullscreenElement && root.requestFullscreen) {
-    try {
-      const p = root.requestFullscreen({ navigationUI: "hide" });
-      if (p?.then) {
-        p.then(() => screen.orientation?.lock?.("landscape").catch?.(() => {})).catch(() => {});
-      }
-    } catch {}
-  }
+async function requestGameFullscreen() {
+  try {
+    if(!document.fullscreenElement && document.documentElement.requestFullscreen)
+      await document.documentElement.requestFullscreen({navigationUI:'hide'});
+  } catch {}
+  // Installed applications and supported fullscreen browsers can lock directly.
+  try { await screen.orientation?.lock?.('landscape'); } catch {}
 }
 
 function begin(s) {
@@ -1764,12 +1759,45 @@ function updateUI() {
 let contextLost=false;
 canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();contextLost=true;if(started)persist();toast('Restauration du rendu…');});
 canvas.addEventListener('webglcontextrestored',()=>{contextLost=false;applySettings();renderer.setSize(Math.max(1,innerWidth),Math.max(1,innerHeight));camera.updateProjectionMatrix();toast('Le rendu est rétabli.');});
+// Landscape-only smartphone play; the overlay is the fallback when OS locking is unavailable.
+let portraitBlocked=false;
+const orientationPrompt=document.createElement('section');
+orientationPrompt.id='orientationPrompt';orientationPrompt.hidden=true;
+orientationPrompt.setAttribute('role','dialog');orientationPrompt.setAttribute('aria-modal','true');orientationPrompt.setAttribute('aria-labelledby','orientationTitle');
+orientationPrompt.innerHTML='<span class="orientation-icon" aria-hidden="true">↻</span><h2 id="orientationTitle">Tournez votre téléphone</h2><p>Ambrelune se joue en paysage.<br>Tournez votre écran pour continuer.</p><button type="button">Activer le mode paysage</button>';
+document.body.append(orientationPrompt);
+orientationPrompt.querySelector('button').onclick=requestGameFullscreen;
+const orientationInert=new Set();let orientationPreviousFocus=null;
+function updateOrientationGate(){
+ const mobile=matchMedia('(pointer:coarse)').matches || document.body.classList.contains('touch');
+ const blocked=mobile && Math.min(innerWidth,innerHeight)<=600 && innerHeight>innerWidth;
+ if(blocked===portraitBlocked)return;
+ portraitBlocked=blocked;orientationPrompt.hidden=!blocked;
+ document.body.classList.toggle('portrait-blocked',blocked);
+ if(blocked){
+  orientationPreviousFocus=document.activeElement;
+  input.keys.clear();input.stick={x:0,y:0};input.running=false;input.target=null;input.route=[];input.drag=null;
+  if(fishingSession)fishingSession.holding=false;
+  for(const el of document.body.children)if(el!==orientationPrompt&&!el.inert){el.inert=true;orientationInert.add(el);}
+  orientationPrompt.querySelector('button').focus();
+ }else{
+  for(const el of orientationInert)el.inert=false;orientationInert.clear();
+  if(orientationPreviousFocus?.isConnected)orientationPreviousFocus.focus({preventScroll:true});
+ }
+}
+window.addEventListener('resize',updateOrientationGate);
+window.addEventListener('orientationchange',updateOrientationGate);
+window.addEventListener('keydown',e=>{if(portraitBlocked){if(!['Tab','Enter',' '].includes(e.key))e.preventDefault();e.stopImmediatePropagation();}},true);
+matchMedia('(pointer:coarse)').addEventListener('change',updateOrientationGate);
+new MutationObserver(updateOrientationGate).observe(document.body,{attributes:true,attributeFilter:['class']});
+updateOrientationGate();
+
 const clock = new T.Clock();
 function loop() {
   requestAnimationFrame(loop);
   const raw = clock.getDelta(),
     dt = Math.min(raw, 0.05);
-  if(contextLost || document.hidden)return;
+  if(contextLost || document.hidden || portraitBlocked)return;
   time += dt;
   windUniform.value = time;
   frames++;
