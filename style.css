@@ -3200,8 +3200,6 @@ body.touch #toolbelt {
   }
   #toolbelt .tool { width: 40px; height: 40px; }
 }
-\n\n/* ===== Mobile V6: robust persistent toolbelt ===== */\nbody.touch #toolbelt,\n@media (orientation: landscape) and (max-height: 900px) {\n}\nbody.touch #toolbelt {\n  display: flex !important;\n  visibility: visible !important;\n  opacity: 1 !important;\n  position: fixed !important;\n  left: 50% !important;\n  right: auto !important;\n  bottom: max(12px, env(safe-area-inset-bottom)) !important;\n  transform: translateX(-50%) !important;\n  z-index: 9999 !important;\n  width: max-content !important;\n  max-width: min(56vw, 540px) !important;\n  min-height: 48px;\n  padding: 4px !important;\n  overflow-x: auto !important;\n  overflow-y: hidden !important;\n  pointer-events: auto !important;\n  background: rgba(245,239,222,.94) !important;\n  border: 1px solid rgba(255,255,255,.65) !important;\n  box-shadow: 0 8px 26px rgba(16,39,33,.28) !important;\n  backdrop-filter: blur(8px);\n}\nbody.touch #toolbelt .tool {\n  display: grid !important;\n  place-items: center;\n  flex: 0 0 44px !important;\n  width: 44px !important;\n  height: 44px !important;\n  min-width: 44px !important;\n  padding: 5px !important;\n  visibility: visible !important;\n  opacity: 1 !important;\n}\nbody.touch #toolbelt .tool svg {\n  display: block !important;\n  width: 23px !important;\n  height: 23px !important;\n  margin: 0 !important;\n}\nbody.touch #toolbelt .tool kbd,\nbody.touch #toolbelt .tool span { display: none !important; }\n@media (orientation: landscape) and (max-height: 900px) {\n  body.touch #toolbelt {\n    max-width: min(52vw, 500px) !important;\n    bottom: max(10px, env(safe-area-inset-bottom)) !important;\n  }\n}\n
-
 /* ===== V7 HUD cleanup ===== */
 /* Hidden by request: top-left branding, redundant top-right journal button, minimap and bottom-left companion pill. */
 #hud .brand,
@@ -3438,3 +3436,38 @@ body.modal-open .quest {
   .quest.compact .quest-direction > span { width: 21px; height: 21px; font-size: 18px; }
   .quest.compact .quest-direction > em { font-size: 8.5px; }
 }
+/* Homestead: compact touch-safe actions and fishing in the world. */
+.storage-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;max-height:55dvh;overflow:auto}.storage-grid section{display:flex;flex-direction:column;gap:7px;min-width:0}.storage-grid button{text-align:left;min-height:44px}
+.inventory-search{display:flex;align-items:center;gap:12px;margin:0 0 20px}.inventory-search input{min-width:0;flex:1;padding:12px;border:1px solid #b5bea9;border-radius:12px;background:#fffaf0}.object-card[hidden]{display:none!important}.object-card .card-actions{flex-wrap:wrap}.installed-card button{margin-top:8px}
+.fishing-panel{position:fixed;z-index:45;bottom:max(22px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);width:min(490px,calc(100vw - 24px));box-sizing:border-box;padding:20px;background:linear-gradient(135deg,#f8f0dcf5,#e8eddcf5);border:1px solid #b4b99b;border-radius:20px;color:#294a40;box-shadow:0 12px 45px #17332955}.fishing-panel h2{font-size:22px;margin:6px 0}.fishing-panel p{font-size:14px;margin:8px 0}.fishing-panel button{min-height:46px;touch-action:none;user-select:none}.fishing-panel progress{display:block;width:100%;height:14px;accent-color:#739b7a;margin:10px 0}.tension-track{height:18px;border-radius:10px;background:#c2bfa8;position:relative;overflow:hidden}.tension-track span{position:absolute;left:27%;width:51%;height:100%;background:#82a975}.tension-track i{position:absolute;height:100%;width:5px;background:#fff9e8;box-shadow:0 0 3px #213c30}
+.indoors #minimap{opacity:.45}.card-actions{flex-wrap:wrap;gap:8px}.card-actions button{min-height:44px}
+#battle .moves button,#battle button[data-move]{background:linear-gradient(135deg,#edf0dc,#dbdfc7);border:1px solid #a8b695;border-radius:14px;min-height:60px;box-shadow:0 3px 0 #526c4b33;color:#2d4c41}
+@media(max-width:650px){.storage-grid{gap:8px}.storage-grid button{font-size:12px;padding:8px}.fishing-panel{padding:12px;bottom:8px}.fishing-panel h2{font-size:18px}.inventory-search{flex-wrap:wrap}.paper{max-height:calc(100dvh - 16px)!important;overflow:auto}.buildbar,#buildbar{max-width:calc(100vw - 16px);flex-wrap:wrap;box-sizing:border-box}.toolbelt,#toolbelt{max-width:calc(100vw - 16px);overflow-x:auto;scrollbar-width:thin}}
+@media(max-height:500px){.fishing-panel{left:auto;right:12px;transform:none;width:360px;bottom:12px;padding:12px}.fishing-panel p{font-size:12px}#buildbar{bottom:8px}.journal-paper{max-height:calc(100dvh - 8px)!important}}
+body.touch #toolbelt{display:flex!important;visibility:visible!important;max-width:calc(100vw - 18px)!important;width:max-content!important;bottom:max(10px,env(safe-area-inset-bottom))!important;z-index:15!important;overflow-x:auto!important;pointer-events:auto!important}
+body.touch #toolbelt .tool{flex:0 0 44px!important;min-width:44px!important;width:44px!important;height:44px!important;padding:5px!important}
+body.touch #toolbelt .tool svg{width:23px!important;height:23px!important}body.touch #toolbelt kbd,body.touch #toolbelt .tool span{display:none!important}
+body.touch #joystick{bottom:85px}body.touch #cameraPad{bottom:155px}body.touch #runBtn{bottom:145px}body.touch #interaction{bottom:82px;right:12px;max-width:45vw}
+body.modal-open #toolbelt{visibility:hidden!important}body:has(.fishing-panel) #toolbelt{visibility:hidden!important}
+@media(orientation:landscape){body.touch #joystick{bottom:22px}body.touch #toolbelt{max-width:50vw!important}body.touch #interaction{bottom:86px}body.touch #cameraPad{bottom:20px}body.touch #runBtn{bottom:30px}}
+#battleActions button[data-move="braise"]{border-left:5px solid #d58b54}#battleActions button[data-move="onde"]{border-left:5px solid #72afb5}#battleActions button[data-move="liane"],#battleActions button[data-move="pollen"]{border-left:5px solid #83a66b}#battleActions button[data-move="garde"]{border-left:5px solid #a5bccc}
+.equipment-strip{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 18px}.equipment-strip button{min-height:44px;background:#dde6d7;border:1px solid #afbfab;border-radius:10px;color:#315449}.inventory-search select{padding:10px;border-radius:10px;max-width:100%;background:#faf7ec;color:#315449;border:1px solid #afbfab}
+/* Every journal destination remains visible and named on narrow screens. */
+@media(max-width:900px){
+ #modal .paper.journal-paper{width:calc(100vw - 12px)!important;max-width:calc(100vw - 12px)!important;box-sizing:border-box;overflow-x:hidden!important}
+ #modal .journal-shell{display:grid!important;grid-template-columns:minmax(0,1fr)!important;max-width:100%;min-width:0}
+ #modal .journal-sidebar{display:block!important;width:100%!important;max-width:100%;min-width:0;box-sizing:border-box;padding:8px 50px 8px 8px!important}
+ #modal .journal-brand{display:none!important}
+ #modal .journal-nav{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr));gap:3px!important;width:100%!important;min-width:0!important;max-width:100%!important;overflow:visible!important}
+ #modal .journal-nav button{display:flex!important;flex-direction:column!important;width:100%!important;min-width:0!important;min-height:48px!important;gap:2px;padding:4px 1px!important;box-sizing:border-box}
+ #modal .journal-nav button span{display:block!important;font-size:10px;line-height:12px;letter-spacing:0;white-space:normal}
+ #modal .journal-nav .tab-icon{width:18px;height:18px}
+ #modal .journal-page,#modal .journal-content{min-width:0;max-width:100%;box-sizing:border-box}
+ #modal .journal-paper #closeModal{width:44px!important;height:44px!important;top:6px!important;right:4px!important}
+}
+@media(min-width:600px) and (max-width:900px){#modal .journal-nav{grid-template-columns:repeat(8,minmax(0,1fr))}}
+#modal .journal-page-header{box-sizing:border-box;max-width:100%}
+body.modal-open #debug{display:none}
+#debug{max-width:calc(100vw - 16px);box-sizing:border-box;overflow-wrap:anywhere;white-space:pre-wrap;left:8px;right:auto;transform:none}
+body:has(#buildbar:not([hidden])) #toolbelt{visibility:hidden!important}#buildbar button{min-height:44px!important}#buildbar{z-index:25;gap:8px}
+.scene-transition{position:fixed;inset:0;z-index:90;pointer-events:none;background:#293d34;animation:scene-reveal .35s ease-out forwards}@keyframes scene-reveal{from{opacity:1}to{opacity:0}}

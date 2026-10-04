@@ -1,3 +1,7 @@
+import { prepareOccluders, updateCutawayScreen } from './rendering/occlusion.js';
+import { FishingSession } from './rendering/fishing.js';
+import { Interior, indoorHeight, indoorCollision } from './rendering/interior.js';
+import { CROPS, BUILDABLES, FOOD, spaceOf, furnitureBlocks, stationAvailable, transfer, recover } from './systems/homestead.js';
 import {
   gauge,
   teamView,
@@ -36,6 +40,7 @@ import {
   TOOLS,
   LANDMARKS,
   ELEMENT_NAMES,
+  portrait,
   species,
 } from "./systems/data.js";
 import {
@@ -134,6 +139,44 @@ let state = newState(),
   stepElapsed = 0,
   farmHelperElapsed = 0,
   lastDailyHour = 8;
+let fishingSession=null;
+let interior = null;
+prepareOccluders(scene);
+const currentScene = () => interior?.scene || scene;
+const surfaceHeight = (x,z) => interior ? indoorHeight(x,z,state.player.y||0) : height(x,z);
+const solidAt = (x,z,r=.4) => interior ? indoorCollision(x,z,r,state.player.y||0) : world.collides(x,z,r);
+function syncWorld() { world.sync({...state,buildings:state.buildings.filter(b=>spaceOf(b)==='world')}); interior?.sync(state); }
+function sceneTransition(){const veil=document.createElement('div');veil.className='scene-transition';document.body.append(veil);veil.addEventListener('animationend',()=>veil.remove(),{once:true});}
+function enterHome(location='home') {
+ sceneTransition();
+ cancelBuild();closeModal();input.target=null;input.route=[];
+ state.outdoorPlayer={...state.player};state.location=location;
+ interior=new Interior();prepareOccluders(interior.root);interior.scene.add(player);companion.visible=false;
+ state.player={x:0,z:4.5,y:0};player.position.set(0,0,4.5);
+ input.zoom=7;camera.fov=55;camera.updateProjectionMatrix();cameraTarget.set(0,1,4.5);camera.position.set(3,2.7,7.3);
+ interior.sync(state);document.body.classList.add('indoors');persist();
+ toast('Bienvenue chez vous. L’escalier est à droite. Approchez de la porte pour sortir.');
+}
+function leaveHome() {
+ sceneTransition();
+ cancelBuild();closeModal();scene.add(player);companion.visible=true;
+ interior?.dispose();interior=null;state.location='world';
+ state.player=state.outdoorPlayer||{x:-36,z:29};delete state.player.y;
+ input.zoom=21;camera.fov=38;camera.updateProjectionMatrix();input.target=null;input.route=[];
+ cameraTarget.set(state.player.x,height(state.player.x,state.player.z)+1,state.player.z);
+ player.position.set(state.player.x,height(state.player.x,state.player.z),state.player.z);
+ document.body.classList.remove('indoors');persist();
+}
+function furnishingMenu(index) {
+ const b=state.buildings[index];if(!b)return;
+ const storage=['chest','shelf','wardrobe'].includes(b.type);
+ showModal(`<span class="eyebrow">MAISON & JARDIN</span><h2>${ITEMS[b.type]}</h2><div class="card-actions"><button id="moveObject">Déplacer / tourner</button><button id="recoverObject">Récupérer</button>${b.type==='sleepingBed'?'<button id="restMorning">Jusqu’au matin</button><button id="restEvening">Jusqu’au soir</button>':''}${['workbench','furnace','stove','composter'].includes(b.type)?'<button id="useStation">Fabriquer ici</button>':''}</div>${storage?`<p>Transférez une unité à la fois. Un coffre doit être vidé avant d’être récupéré.</p><div class="storage-grid"><section><h3>Votre sac</h3>${Object.entries(state.inventory).filter(([,n])=>n>0).map(([id,n])=>`<button data-store="${id}">${ITEMS[id]||id} ×${n} →</button>`).join('')}</section><section><h3>Rangement</h3>${Object.entries(b.storage||{}).filter(([,n])=>n>0).map(([id,n])=>`<button data-take="${id}">← ${ITEMS[id]||id} ×${n}</button>`).join('')||'<p>Vide</p>'}</section></div>`:''}`);
+ $('moveObject').onclick=()=>startBuild(b.type,index);
+ $('recoverObject').onclick=()=>{if(!recover(state,index))return toast('Videz le rangement avant de le récupérer.');syncWorld();persist();closeModal();};
+ if($('useStation'))$('useStation').onclick=()=>openMenu('craft');
+ for(const [id,morning] of [['restMorning',true],['restEvening',false]]) if($(id))$(id).onclick=()=>{if(morning || state.time>=19)state.day++;state.time=morning?7:19;tickFarm(state,65);state.team.forEach(c=>{c.hp=c.maxHp;c.energy=30;c.status=null;});closeModal();syncWorld();persist();toast('Votre équipe est reposée.');};
+ for(const [attr,to] of [['store',true],['take',false]])document.querySelectorAll('[data-'+attr+']').forEach(btn=>btn.onclick=()=>{transfer(state,b,btn.dataset[attr],1,to);persist();furnishingMenu(index);});
+}
 const errors = [];
 window.addEventListener("error", (e) => errors.push(e.message));
 const raycaster = new T.Raycaster(),
@@ -150,6 +193,7 @@ const input = new Input(canvas, {
     if (building) building.r += Math.PI / 2;
   },
   escape: () => {
+    if(fishingSession)return fishingSession.finish(false,"La ligne est rangée.");
     if (building) cancelBuild();
     else if (!$("modal").hidden) closeModal();
     else if (!battle && started) openMenu("settings");
@@ -159,12 +203,12 @@ const input = new Input(canvas, {
   },
 });
 input.onGround = (sx, sy) => {
-  if (!started || battle || !$("modal").hidden) return;
+  if (!started || battle || fishingSession || !$("modal").hidden) return;
   raycaster.setFromCamera(
     { x: (sx / innerWidth) * 2 - 1, y: 1 - (sy / innerHeight) * 2 },
     camera,
   );
-  const hit = raycaster.intersectObjects(world.pickSurfaces)[0];
+  const hit = raycaster.intersectObjects(interior ? [interior.floors[(state.player.y||0)>3.3?1:0]] : world.pickSurfaces)[0];
   if (hit) {
     aimPoint.copy(hit.point);
     if (building) {
@@ -175,13 +219,21 @@ input.onGround = (sx, sy) => {
         state.player,
         { x: aimPoint.x, z: aimPoint.z },
         (x, z) =>
-          world.collides(x, z, 0.48) ||
-          state.buildings.some((b) => Math.hypot(b.x - x, b.z - z) < 1),
+          solidAt(x, z, 0.48) ||
+          state.buildings.some(b=>furnitureBlocks(b,x,z,.4,state.player.y||0,state.location)),
       );
       input.target = input.route.shift() || null;
       if (!input.target) toast("Choisissez un endroit accessible au sol.");
     }
   }
+};
+input.onObject=(sx,sy)=>{
+ if(!started||battle||building||!$('modal').hidden)return false;
+ raycaster.setFromCamera({x:sx/innerWidth*2-1,y:1-sy/innerHeight*2},camera);
+ const hit=raycaster.intersectObjects(interior ? interior.furniture.children : world.buildMeshes,true)[0];
+ if(!hit)return false;let root=hit.object;while(root&&!root.userData.building)root=root.parent;
+ const index=state.buildings.indexOf(root?.userData.building);if(index<0)return false;
+ input.route=[];input.target=null;furnishingMenu(index);return true;
 };
 function toast(text) {
   $("toast").textContent = text;
@@ -196,9 +248,11 @@ function showModal(html, closable = true) {
   paper?.classList.toggle("story-dialog", !html.includes('class="journal-shell"'));
   $("modalContent").innerHTML = html;
   $("modal").hidden = false;
+  $("hud").inert=true;$("intro").inert=true;
   document.body.classList.add("modal-open");
   $("closeModal").hidden = !closable;
   input.target = null;
+  input.route=[];input.stick={x:0,y:0};input.running=false;
   input.keys.clear();
   mountCreaturePortraits($("modalContent"));
 
@@ -223,6 +277,7 @@ function showModal(html, closable = true) {
 function closeModal() {
   clearCreaturePortraits();
   $("modal").hidden = true;
+  $("hud").inert=false;$("intro").inert=false;
   document.body.classList.remove("modal-open");
   input.keys.clear();
   canvas.focus();
@@ -251,20 +306,20 @@ function ensurePlots() {
         });
 }
 function setupActors() {
-  if (player) scene.remove(player);
-  if (companion) scene.remove(companion);
+  if (player) player.removeFromParent();
+  if (companion) { companion.removeFromParent();companion.userData.dispose?.(); }
   player = character("player", state.color);
-  scene.add(player);
+  currentScene().add(player);
   player.position.set(
     state.player.x,
-    height(state.player.x, state.player.z),
+    surfaceHeight(state.player.x, state.player.z),
     state.player.z,
   );
   companion = modelCreature(species(state.team[0].id), 0.8);
   scene.add(companion);
   companion.position.set(
     state.player.x - 1,
-    height(state.player.x - 1, state.player.z + 1),
+    surfaceHeight(state.player.x - 1, state.player.z + 1),
     state.player.z + 1,
   );
 }
@@ -285,11 +340,20 @@ function requestGameFullscreen() {
 function begin(s) {
   requestGameFullscreen();
   input.zoom = 21;
+  fishingSession?.finish(false,"La ligne est rangée.");
+  if(battle)endBattle("Fin de la rencontre.");
+  if(interior)leaveHome();
+  const resume=s.location && s.location!=="world" ? {location:s.location,player:{...s.player}} : null;
   state = s;
+  if(state.location!=="world"){state.player=state.outdoorPlayer||{x:-36,z:29};state.location="world";}
+  if(!resume && world.collides(state.player.x,state.player.z,.4)){
+    const origin={...state.player};
+    outer:for(let radius=.5;radius<14;radius+=.5)for(let i=0;i<24;i++){const x=origin.x+Math.cos(i*Math.PI/12)*radius,z=origin.z+Math.sin(i*Math.PI/12)*radius;if(!world.collides(x,z,.45)){state.player={x,z};break outer;}}
+  }
   ensurePlots();
   started = true;
   setupActors();
-  world.sync(state);
+  syncWorld();
   $("intro").hidden = true;
   $("hud").hidden = false;
   audio.enabled = state.settings.sound;
@@ -298,11 +362,12 @@ function begin(s) {
   renderToolbelt();
   updateHUD();
   cameraTarget.set(state.player.x, 1, state.player.z);
+  if(resume){enterHome(resume.location);state.player=resume.player;movePlayer(0);cameraTarget.copy(player.position).add(new T.Vector3(0,1,0));}
   persist();
 }
 function introChoice() {
   showModal(
-    `<span class="eyebrow">PROLOGUE · LA LETTRE DE MAËLLE</span><h2>« Le jardin t’attend. »</h2><p>Votre tante vous a légué une maison aux portes d’Ambrelune. Depuis que la Source s’est tue, les jardins perdent leur éclat. Maëlle pense qu’un nouveau lien pourrait les réveiller.</p><div class="settings"><label>Votre nom <input id="playerName" value="Élo" maxlength="24" aria-label="Votre nom"></label><label>Votre manteau <input id="coatColor" type="color" value="#657d95" aria-label="Couleur du manteau"></label></div><div class="cards">${SPECIES.slice(
+    `<span class="eyebrow">PROLOGUE · LA LETTRE DE MAËLLE</span><h2>« Le jardin t’attend. »</h2><p>Votre tante vous a légué une maison aux portes d’Ambrelune. Depuis que la Source s’est tue, les jardins perdent leur éclat. Maëlle pense qu’un nouveau lien pourrait les réveiller.</p><div class="settings"><label>Votre nom <input id="playerName" value="Élo" maxlength="24" aria-label="Votre nom"></label></div><div class="cards">${SPECIES.slice(
       0,
       3,
     )
@@ -321,7 +386,7 @@ function introChoice() {
         const s = newState(
           b.dataset.starter,
           $("playerName").value.trim() || "Élo",
-          $("coatColor").value,
+          "#657d95",
         );
         if (matchMedia("(pointer:coarse)").matches) {
           s.settings.quality = "medium";
@@ -361,49 +426,18 @@ function equipTool() {
   heldTool = new T.Group();
   heldTool.name = "HeldTool";
   const f = new Factory(heldTool);
-  if (["axe", "pick", "hoe"].includes(tool)) {
-    f.part(
-      "cylinder",
-      "#9b7b50",
-      0,
-      -0.18,
-      0.15,
-      0.035,
-      0.72,
-      0.035,
-      Math.PI / 3,
-    );
-    if (tool === "axe")
-      f.part("box", "#9eaaa1", 0.14, 0.02, 0.43, 0.3, 0.2, 0.045);
-    if (tool === "pick")
-      f.part("box", "#83978e", 0, 0.02, 0.43, 0.5, 0.09, 0.08);
-    if (tool === "hoe")
-      f.part("box", "#83978e", 0, 0.02, 0.43, 0.24, 0.07, 0.27);
-  } else if (tool === "water") {
-    f.part("cylinder", "#87a99b", 0, -0.5, 0.15, 0.18, 0.3, 0.18);
-    f.part(
-      "cylinder",
-      "#94b5aa",
-      0,
-      -0.48,
-      0.43,
-      0.045,
-      0.35,
-      0.045,
-      Math.PI / 2,
-    );
-    f.part(
-      "torus",
-      "#b9c7a4",
-      0,
-      -0.32,
-      0.15,
-      0.16,
-      0.16,
-      0.16,
-      0,
-      Math.PI / 2,
-    );
+  // Model the grip at the origin so the hand socket no longer grips empty space.
+  if(['axe','pick','hoe'].includes(tool)) {
+    heldTool.rotation.x=.3;
+    f.part('cylinder','#9b7b50',0,.12,0,.028,.85,.028,0,0,0,'wood');
+    if(tool==='axe')f.part('box','#9eaaa1',.12,.5,0,.3,.21,.065);
+    if(tool==='pick')f.part('box','#83978e',0,.5,0,.54,.085,.07,0,0,-.14);
+    if(tool==='hoe')f.part('box','#83978e',0,.49,.09,.24,.065,.25);
+  } else if(tool==='water') {
+    f.part('cylinder','#87a99b',0,-.25,0,.19,.28,.19);
+    f.part('torus','#b9c7a4',0,-.06,0,.13,.13,.13,0,Math.PI/2);
+    f.part('cylinder','#94b5aa',0,-.16,.29,.035,.36,.035,Math.PI/2-.3);
+    f.part('sphere','#b9c7a4',0,-.1,.46,.095,.065,.04);
   }
   player.userData.arms[1].add(heldTool);
 }
@@ -527,8 +561,9 @@ function questCheck() {
   persist();
 }
 function nearby() {
-  const p = state.player,
-    list = [];
+  const p = state.player, list = [];
+  state.buildings.forEach((b,index)=>{if(spaceOf(b)===(state.location||'world') && Math.abs((b.y||0)-(p.y||0))<1)list.push({...b,type:'furniture',index,name:ITEMS[b.type],distance:Math.hypot(b.x-p.x,b.z-p.z)});});
+  if(interior){if((p.y||0)<1)list.push({type:'exit',name:'Sortir de la maison',x:0,z:7,distance:Math.hypot(p.x,p.z-7)});return list.sort((a,b)=>a.distance-b.distance).find(v=>v.distance<2.5);}
   for (const n of world.npcs)
     list.push({
       ...n,
@@ -561,9 +596,9 @@ function nearby() {
       source: plot,
       name:
         plot.stage === 4
-          ? "Roselle mûre"
+          ? `${CROPS[plot.seed||"seed"]?.name||"Culture"} mûr(e)`
           : plot.stage
-            ? "Roselle · " + ["", "graine", "pousse", "bouton"][plot.stage]
+            ? (CROPS[plot.seed||"seed"]?.name||"Culture") + " · " + ["", "graine", "pousse", "bouton"][plot.stage]
             : "Terre à cultiver",
       distance: Math.hypot(plot.x - p.x, plot.z - p.z),
     });
@@ -580,6 +615,7 @@ function nearby() {
   return list.find((v) => v.distance < (v.type === "wild" ? 3.3 : 2.5));
 }
 function interact() {
+  if(fishingSession)return;
   if (!started || battle || !$("modal").hidden) return;
   if (building) return placeBuilding();
   const a = nearby();
@@ -590,6 +626,8 @@ function interact() {
   input.target = null;
   actionTimer = 0.65;
   player.rotation.y = Math.atan2(a.x - state.player.x, a.z - state.player.z);
+  if(a.type === "exit") return leaveHome();
+  if(a.type === "furniture") return furnishingMenu(a.index);
   if (a.type === "npc") {
     player.userData.playAction?.("Interact");
     return dialogue(a);
@@ -603,11 +641,11 @@ function interact() {
   }
   if (a.type === "plot") {
     const text = farmAction(state, a.source, tool);
-    world.sync(state);
+    syncWorld();
     audio.play(tool === "water" ? "water" : "harvest");
     world.burst(
       a.x,
-      height(a.x, a.z) + 0.4,
+      surfaceHeight(a.x, a.z) + 0.4,
       a.z,
       tool === "water" ? "#a3d6da" : "#d5c78c",
     );
@@ -622,7 +660,7 @@ function interact() {
     const required =
       a.resourceType === "wood"
         ? "axe"
-        : ["stone", "crystal"].includes(a.resourceType)
+        : ["stone", "crystal", "ore", "coal"].includes(a.resourceType)
           ? "pick"
           : "hand";
     if (tool !== required) {
@@ -637,7 +675,7 @@ function interact() {
     a.source.mesh.visible = false;
     world.burst(
       a.x,
-      height(a.x, a.z) + 0.5,
+      surfaceHeight(a.x, a.z) + 0.5,
       a.z,
       a.resourceType === "crystal" ? "#aad4bb" : "#cdbb93",
       24,
@@ -651,7 +689,7 @@ function interact() {
     persist();
     return;
   }
-  if (a.type === "home") { player.userData.playAction?.("Interact"); return home(); }
+  if (a.type === "home") { player.userData.playAction?.("Interact"); return enterHome(a.location || "home"); }
   if (a.type === "workbench") { player.userData.playAction?.("Interact"); return openMenu("craft"); }
   if (a.type === "fish") { player.userData.playAction?.("Interact"); return fishing(); }
 }
@@ -708,6 +746,7 @@ function shop() {
   showModal(
     `<span class="eyebrow">MARCHÉ DES TISSERANDS</span><h2>Un panier pour demain</h2><p>Votre bourse : ${state.coins} ambres</p><div class="rows">${[
       ["seed", 5],
+      ["wheatSeed",7],["carrotSeed",6],["flaxSeed",8],["pumpkinSeed",10],
       ["seal", 18],
       ["potion", 15],
     ]
@@ -717,6 +756,7 @@ function shop() {
       )
       .join("")}${[
       ["crop", 12],
+      ["wheat",14],["carrot",12],["flax",16],["pumpkin",22],
       ["quality", 24],
       ["fish", 16],
     ]
@@ -769,7 +809,7 @@ function home() {
       c.energy = 30;
       c.status = null;
     });
-    world.sync(state);
+    syncWorld();
     closeModal();
     persist();
     updateHUD();
@@ -780,33 +820,9 @@ function home() {
   };
 }
 function fishing() {
-  const start = performance.now();
-  showModal(
-    `<span class="eyebrow">SUR LES RIVES DE L’AMBRE</span><h2>Un éclat sous l’eau…</h2><p>Observez le flotteur. Ferrez quand l’anneau passe dans la zone verte.</p><div style="height:22px;background:#dedbc2;border-radius:12px;position:relative;margin:25px 0;overflow:hidden"><div style="position:absolute;left:40%;width:22%;height:100%;background:#86aa82"></div><i id="fishingNeedle" style="position:absolute;width:6px;height:100%;background:#2b4c42"></i></div><button id="reel" class="primary">Ferrer</button><p id="fishingResult"></p>`,
-  );
-  let raf;
-  const loop = () => {
-    if ($("modal").hidden || !$("fishingNeedle")) return;
-    const t = (performance.now() - start) / 750;
-    $("fishingNeedle").style.left = `${(Math.sin(t) + 1) * 47}%`;
-    raf = requestAnimationFrame(loop);
-  };
-  loop();
-  $("reel").onclick = () => {
-    cancelAnimationFrame(raf);
-    const value = (Math.sin((performance.now() - start) / 750) + 1) * 47;
-    if (value >= 40 && value <= 62) {
-      add(state, "fish");
-      $("fishingResult").textContent = "Une truite ambrée ! +1 dans votre sac.";
-      audio.play("harvest");
-    } else {
-      $("fishingResult").textContent =
-        "Le poisson a filé. Les rives vous attendront.";
-      audio.play("water");
-    }
-    $("reel").disabled = true;
-    persist();
-  };
+ if(fishingSession||interior)return;
+ input.target=null;input.route=[];input.keys.clear();
+ fishingSession=new FishingSession(scene,player,riverX(state.player.z)-1,state.player.z,(success,message)=>{fishingSession=null;if(success){add(state,'fish');audio.play('harvest');persist();}toast(message);});
 }
 const tabs = [
   ["team", "Compagnons", "Vos liens et votre équipe active"],
@@ -832,7 +848,9 @@ const tabIcon = (id) => {
   return `<svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${icons[id] || icons.journal}</g></svg>`;
 };
 function openMenu(tab = modalTab) {
+  fishingSession?.finish(false,"La ligne est rangée.");
   if (!started || battle) return;
+  if(building)cancelBuild();
   modalTab = tab;
   let html = "";
   if (tab === "team") html = teamView(state);
@@ -860,7 +878,7 @@ function openMenu(tab = modalTab) {
     html = `<div class="settings-grid"><section class="settings-card"><div class="settings-card-head"><span class="settings-symbol">◫</span><div><small>AFFICHAGE</small><h3>Qualité visuelle</h3></div></div><label class="setting-row"><span><b>Qualité graphique</b><small>Adapte ombres et finesse du rendu.</small></span><select id="quality">${["low", "medium", "high", "ultra"].map((q, i) => `<option value="${q}" ${state.settings.quality === q ? "selected" : ""}>${["Basse · optimisée", "Moyenne", "Haute", "Ultra"][i]}</option>`).join("")}</select></label><label class="setting-row toggle-row"><span><b>Mesures de performance</b><small>Affiche les informations techniques.</small></span><input type="checkbox" id="perf" ${!$("debug").hidden ? "checked" : ""}></label></section><section class="settings-card"><div class="settings-card-head"><span class="settings-symbol">⌁</span><div><small>EXPÉRIENCE</small><h3>Sons & contrôles</h3></div></div><label class="setting-row toggle-row"><span><b>Sons d’Ambrelune</b><small>Ambiance, interactions et combats.</small></span><input type="checkbox" id="sound" ${state.settings.sound ? "checked" : ""}></label><label class="setting-row toggle-row"><span><b>Contrôles tactiles</b><small>Affiche les commandes adaptées au smartphone.</small></span><input type="checkbox" id="touch" ${state.settings.touch ? "checked" : ""}></label><div class="settings-actions"><button id="fullscreen">Plein écran</button><button id="photo">Mode paysage sans interface</button></div></section><section class="settings-card settings-card-wide"><div class="settings-card-head"><span class="settings-symbol">◇</span><div><small>VOYAGE</small><h3>Sauvegarde</h3></div></div><p>Votre progression est enregistrée localement sur cet appareil. Vous pouvez aussi conserver une copie du voyage.</p><div class="settings-actions"><button id="saveBtn" class="primary">Sauvegarder</button><button id="exportBtn">Exporter</button><button id="importBtn">Importer</button><input type="file" id="importFile" accept="application/json" hidden></div></section></div><div class="controls-note"><b>Commandes PC</b><span>ZQSD / WASD / flèches · déplacement à 360°</span><span>Maj · courir</span><span>E · agir</span><span>1–6 · outils</span><span>Tab · carnet</span><span>M · carte</span><span>R · tourner</span><span>Échap · retour</span></div><small class="version-note">Version 0.4 · Interface Ambrelune · Sauvegarde locale versionnée</small>`;
   const current = tabs.find((t) => t[0] === tab) || tabs[0];
   showModal(
-    `<div class="journal-shell"><aside class="journal-sidebar"><div class="journal-brand"><span class="journal-sigil">❧</span><div><b>AMBRELUNE</b><small>CARNET DE ${esc(state.name).toUpperCase()}</small></div></div><nav class="journal-nav">${tabs.map(([id, label]) => `<button data-tab="${id}" class="${id === tab ? "selected" : ""}">${tabIcon(id)}<span>${label}</span><i></i></button>`).join("")}</nav><div class="journal-sidebar-foot"><div><small>JOUR</small><b>${state.day}</b></div><div><small>AMBRE</small><b>◈ ${state.coins}</b></div></div></aside><section class="journal-page"><header class="journal-page-header"><div><span class="eyebrow">${current[2].toUpperCase()}</span><h2>${current[1]}</h2></div><div class="journal-day"><small>${state.weather.toUpperCase()}</small><b>${$("clock").textContent || "08:00"}</b><span>${$("calendar").textContent || `Jour ${state.day}`}</span></div></header><div class="journal-content">${html}</div></section></div>`,
+    `<div class="journal-shell"><aside class="journal-sidebar"><div class="journal-brand"><span class="journal-sigil">❧</span><div><b>AMBRELUNE</b><small>CARNET DE ${esc(state.name).toUpperCase()}</small></div></div><nav class="journal-nav">${tabs.map(([id, label]) => `<button data-tab="${id}" aria-label="${label}" title="${label}" class="${id === tab ? "selected" : ""}">${tabIcon(id)}<span>${label}</span><i></i></button>`).join("")}</nav><div class="journal-sidebar-foot"><div><small>JOUR</small><b>${state.day}</b></div><div><small>AMBRE</small><b>◈ ${state.coins}</b></div></div></aside><section class="journal-page"><header class="journal-page-header"><div><span class="eyebrow">${current[2].toUpperCase()}</span><h2>${current[1]}</h2></div><div class="journal-day"><small>${state.weather.toUpperCase()}</small><b>${$("clock").textContent || "08:00"}</b><span>${$("calendar").textContent || `Jour ${state.day}`}</span></div></header><div class="journal-content">${html}</div></section></div>`,
   );
   document
     .querySelectorAll("[data-tab]")
@@ -871,7 +889,7 @@ function openMenu(tab = modalTab) {
         if (
           craft(
             state,
-            RECIPES.find((r) => r.id === b.dataset.craft),
+            RECIPES[+b.dataset.craft],
           )
         ) {
           audio.play("craft");
@@ -917,8 +935,7 @@ function openMenu(tab = modalTab) {
     (b) =>
       (b.onclick = () => {
         const i = +b.dataset.remove;
-        add(state, state.buildings[i].type);
-        state.buildings.splice(i, 1);
+        if(!recover(state,i))return toast("Videz ce rangement avant de le récupérer.");
         world.buildMeshes.forEach((g) => {
           g.traverse((o) => {
             if (o.isInstancedMesh) o.dispose();
@@ -926,7 +943,7 @@ function openMenu(tab = modalTab) {
           scene.remove(g);
         });
         world.buildMeshes = [];
-        world.sync(state);
+        syncWorld();
         persist();
         openMenu("build");
       }),
@@ -939,12 +956,18 @@ function openMenu(tab = modalTab) {
       if (!p) return toast("Plantez une culture avant de fertiliser.");
       if (spend(state, { fertilizer: 1 })) {
         p.fertilized = true;
-        world.sync(state);
+        syncWorld();
         persist();
         openMenu("build");
         toast("Une roselle a reçu du compost.");
       }
     };
+  document.querySelectorAll('[data-equip]').forEach(b=>b.onclick=()=>{closeModal();selectTool(b.dataset.equip);});
+  if($('craftFilter'))$('craftFilter').onchange=e=>document.querySelectorAll('.recipe-card').forEach(card=>card.hidden=e.target.value==='ready'?!card.classList.contains('recipe-ready'):e.target.value!=='all'&&card.dataset.category!==e.target.value);
+  if($('inventorySearch'))$('inventorySearch').oninput=e=>{document.querySelectorAll('.inventory-card').forEach(card=>card.hidden=!card.textContent.toLocaleLowerCase().includes(e.target.value.toLocaleLowerCase()));};
+  document.querySelectorAll('[data-seed]').forEach(b=>b.onclick=()=>{state.selectedSeed=b.dataset.seed;tool='hoe';equipTool();closeModal();toast('Semences sélectionnées : '+ITEMS[state.selectedSeed]);});
+  document.querySelectorAll('[data-eat]').forEach(b=>b.onclick=()=>{const id=b.dataset.eat,c=state.team[0];if(spend(state,{[id]:1})){c.hp=Math.min(c.maxHp,c.hp+FOOD[id]);if(id==='grilledFish')c.energy=Math.min(30,c.energy+10);persist();openMenu('bag');}});
+  document.querySelectorAll('[data-edit-object]').forEach(b=>b.onclick=()=>{const i=+b.dataset.editObject;if(spaceOf(state.buildings[i])!==(state.location||'world'))return toast('Rejoignez le lieu où cet objet est installé.');furnishingMenu(i);});
   if (tab === "map") {
     drawMap($("largeMap"));
     attachTravel();
@@ -1046,6 +1069,7 @@ function attachTravel() {
           z = l.z + Math.cos(i * 2.4) * (2 + i * 0.2);
         }
         if (world.collides(x, z, 0.5)) return;
+        if(interior)leaveHome();
         state.player = { x, z };
         setupActors();
         closeModal();
@@ -1061,7 +1085,7 @@ function applySettings() {
   if (q !== "low") lowRenderScale = 0.85;
   const ratio = q === "low"
     ? lowRenderScale
-    : { medium: 1.2, high: 1.7, ultra: 2.5 }[q];
+    : ({ medium: 1.2, high: 1.7, ultra: 2.5 }[q] || 1.2);
 
   state.settings.pixel = false;
   renderer.setPixelRatio(Math.min(devicePixelRatio, ratio));
@@ -1090,16 +1114,17 @@ function applySettings() {
     state.settings.touch || matchMedia("(pointer:coarse)").matches,
   );
 }
-function startBuild(type) {
+function startBuild(type, movingIndex=-1) {
   closeModal();
-  if (!state.inventory[type]) return;
+  if (movingIndex<0 && !state.inventory[type]) return;
   building = {
     type,
-    r: 0,
+    movingIndex,
+    r: movingIndex>=0?state.buildings[movingIndex].r:0,
     x: Math.round(state.player.x + 2),
     z: Math.round(state.player.z),
   };
-  if (preview) scene.remove(preview);
+  if (preview) preview.removeFromParent();
   preview = new T.Group();
   const f = new Factory(preview);
   furnishing(f, type, 0, 0, 0);
@@ -1111,7 +1136,7 @@ function startBuild(type) {
       o.material.depthWrite = false;
     }
   });
-  scene.add(preview);
+  currentScene().add(preview);
   $("buildbar").hidden = false;
   $("buildlabel").textContent = ITEMS[type];
   $("interaction").style.display = "none";
@@ -1120,16 +1145,18 @@ function startBuild(type) {
 function placeBuilding() {
   if (!building) return;
   const { x, z, type, r } = building;
-  if (!canPlace(state, x, z, (x, z, r) => world.collides(x, z, r))) {
+  if (!canPlace(state, x, z, (x, z, r) => solidAt(x, z, r),type,r,building.movingIndex)) {
     toast(
       "Placez cette création sur votre terrain, à distance des cultures et des obstacles.",
     );
     return;
   }
-  if (!spend(state, { [type]: 1 })) return;
-  state.buildings.push({ type, x, z, r });
-  world.sync(state);
-  world.burst(x, height(x, z) + 0.7, z);
+  const placed={type,x,z,r,location:state.location||'world',y:interior?((state.player.y||0)>3.3?3.6:0):0};
+  if(building.movingIndex>=0)Object.assign(state.buildings[building.movingIndex],placed);
+  else {if (!spend(state, { [type]: 1 })) return; state.buildings.push(placed);}
+  persist();
+  syncWorld();
+  world.burst(x, surfaceHeight(x, z) + 0.7, z);
   audio.play("craft");
   cancelBuild();
   questCheck();
@@ -1137,7 +1164,7 @@ function placeBuilding() {
 }
 function cancelBuild() {
   if (preview) {
-    scene.remove(preview);
+    preview.removeFromParent();
     preview.traverse((o) => {
       if (o.isMesh) o.material.dispose();
     });
@@ -1208,7 +1235,7 @@ function drawMap(c) {
   }
   g.font = large ? "12px Georgia" : "8px sans-serif";
   g.textAlign = "center";
-  for (const l of LANDMARKS) {
+  if(!interior) for (const l of LANDMARKS) {
     if (!state.discovered.includes(l.id) && l.id !== state.flags.marker)
       continue;
     const [x, y] = pt(l.x, l.z);
@@ -1262,6 +1289,7 @@ function startBattle(w) {
     wasVisible: w.mesh.visible,
   };
   battle.stage = new BattleStage(battle.ally, battle.enemy);
+  battle.stage.sun.castShadow=state.settings.quality!=="low";
   cameraTarget.set(0, 0.7, 0.5);
   camera.position.set(5, 20, 20);
   battle.ally.energy = 30;
@@ -1316,15 +1344,20 @@ async function applyMove(attacker, defender, id, isAlly) {
   attacker.guard = false;
   let text = "";
   if (move.guard) {
+    battle.stage.support(isAlly, id);
     attacker.guard = true;
     text = `${species(attacker.id).name} s’abrite et retrouve son énergie.`;
   } else if (move.heal) {
+    battle.stage.support(isAlly, id, "#a9d6d0");
     const n = Math.min(move.heal, attacker.maxHp - attacker.hp);
     attacker.hp += n;
     text = `La brume rend ${n} PV à ${species(attacker.id).name}.`;
   } else {
+    const currentBattle=battle;
+    updateBattle(`${species(attacker.id).name} prépare ${move.name}…`);
+    await delay(160);if(battle!==currentBattle)return;
     const hit = damage(attacker, defender, move);
-    defender.hp = Math.max(0, defender.hp - hit.amount);
+    const nextHp = Math.max(0, defender.hp - hit.amount);
     text = hit.miss
       ? `${move.name} manque sa cible.`
       : `${move.name} · ${hit.amount} dégâts${hit.crit ? " · critique" : ""}${hit.effect > 1 ? " · affinité favorable" : ""}`;
@@ -1333,19 +1366,13 @@ async function applyMove(attacker, defender, id, isAlly) {
     defender.guard = false;
     battle.attack = 0.5;
     battle.side = isAlly ? 1 : -1;
-    battle.stage.impact(isAlly, species(attacker.id).accent);
-    const target = isAlly ? battle.wild.mesh : companion;
-    world.burst(
-      target.position.x,
-      target.position.y + 1,
-      target.position.z,
-      species(attacker.id).accent,
-      25,
-    );
+    battle.stage.impact(isAlly, species(attacker.id).accent, id, {miss:hit.miss,ko:nextHp===0});
+    await delay(480);if(battle!==currentBattle)return;
+    defender.hp=nextHp;
     audio.play("hit");
   }
   updateBattle(text);
-  await delay(700);
+  await delay(move.power ? 350 : 700);
 }
 async function battleTurn(action) {
   if (!battle || battle.phase !== "choose") return;
@@ -1363,7 +1390,7 @@ async function battleTurn(action) {
     updateBattle("Les fils de résonance entourent la créature…");
     world.burst(
       b.wild.x,
-      height(b.wild.x, b.wild.z) + 1,
+      surfaceHeight(b.wild.x, b.wild.z) + 1,
       b.wild.z,
       "#f4d688",
       45,
@@ -1381,21 +1408,9 @@ async function battleTurn(action) {
       };
       state.team.push(friend);
       state.stats.captured++;
-      // Advance and save story state while the battle is still open, but never
-      // refresh the HUD here. Updating the objective tracker during battle can
-      // interrupt the capture transition on some browsers/devices.
-      if (advanceQuest(state)) {
-        state.flags.marker = [
-          "city",
-          "home",
-          "forest",
-          "home",
-          "home",
-          "ruins",
-          "home",
-        ][state.quest];
-      }
-      persist();
+      // Validate the friendship quest immediately. Do not wait for endBattle(),
+      // because rendering/world sync errors must never block story progression.
+      questCheck();
       gainXp(a, 15);
       b.wild.cooldown = 100;
       endBattle(
@@ -1446,7 +1461,7 @@ async function battleTurn(action) {
     state.coins = Math.max(0, state.coins - 10);
     a.hp = Math.ceil(a.maxHp * 0.35);
     state.player = { x: -33, z: 29 };
-    player.position.set(-33, height(-33, 29), 29);
+    player.position.set(-33, surfaceHeight(-33, 29), 29);
     endBattle(
       "Votre compagnon est épuisé. Maëlle vous ramène au jardin · 10 ambres de soins.",
     );
@@ -1486,7 +1501,7 @@ function endBattle(message) {
   battle = null;
   $("battle").hidden = true;
   $("hud").hidden = false;
-  world.sync(state);
+  syncWorld();
   updateHUD();
   questCheck();
   toast(message);
@@ -1554,20 +1569,21 @@ function movePlayer(dt) {
   let nx = x + dx * dt * speed,
     nz = z + dz * dt * speed;
   const blocked = (a, b) =>
-    world.collides(a, b) ||
-    state.buildings.some((o) => Math.hypot(a - o.x, b - o.z) < 0.8) ||
-    world.npcs.some((n) => {
+    solidAt(a, b) ||
+    state.buildings.some(o=>furnitureBlocks(o,a,b,.35,state.player.y||0,state.location)) ||
+    (!interior && world.npcs.some((n) => {
       const nextDistance = Math.hypot(a - n.x, b - n.z);
       // A journey can land next to a wandering resident; always allow separation.
       return nextDistance < 0.55 && nextDistance < Math.hypot(x - n.x, z - n.z);
-    });
+    }));
   if (!blocked(nx, z)) state.player.x = nx;
   if (!blocked(state.player.x, nz)) state.player.z = nz;
+  if(interior)state.player.y=indoorHeight(state.player.x,state.player.z,state.player.y||0);
   const moving = Math.hypot(state.player.x - x, state.player.z - z) > 0.001;
   if (!moving && input.target && Math.hypot(dx, dz) > 0) input.target = null;
   player.position.set(
     state.player.x,
-    height(state.player.x, state.player.z),
+    surfaceHeight(state.player.x, state.player.z),
     state.player.z,
   );
   if (moving) {
@@ -1587,6 +1603,7 @@ function movePlayer(dt) {
       player.userData.arms[1].rotation.x =
         -Math.sin(((0.65 - actionTimer) / 0.65) * Math.PI) * 1.8;
   }
+  if(interior)return;
   let tx = state.player.x - Math.sin(player.rotation.y) * 1.4 - 1,
     tz = state.player.z - Math.cos(player.rotation.y) * 1.4;
   const atFarm =
@@ -1611,7 +1628,7 @@ function movePlayer(dt) {
           p.growth += 6;
         } else if (element === "feu" && p.water > 0) p.growth += 9;
         else if (p.water > 0) p.growth += 3;
-        world.burst(p.x, height(p.x, p.z) + 0.6, p.z, "#b2d5bc", 10);
+        world.burst(p.x, surfaceHeight(p.x, p.z) + 0.6, p.z, "#b2d5bc", 10);
         audio.play("water");
       }
     }
@@ -1627,7 +1644,7 @@ function movePlayer(dt) {
     tz,
     Math.min(1, dt * 2.7),
   );
-  companion.position.y = height(companion.position.x, companion.position.z);
+  companion.position.y = surfaceHeight(companion.position.x, companion.position.z);
   if (dist > 0.1)
     companion.rotation.y = Math.atan2(
       tx - companion.position.x,
@@ -1657,7 +1674,7 @@ function updateCamera(dt) {
       battle.wild.z - player.position.z,
     ).normalize();
     companion.position.copy(player.position).addScaledVector(dir, 1.9);
-    companion.position.y = height(companion.position.x, companion.position.z);
+    companion.position.y = surfaceHeight(companion.position.x, companion.position.z);
     companion.rotation.y = Math.atan2(dir.x, dir.z);
     battle.wild.mesh.rotation.y = companion.rotation.y + Math.PI;
     companion.userData.animate(time, false);
@@ -1671,21 +1688,24 @@ function updateCamera(dt) {
   } else
     target = new T.Vector3(
       state.player.x,
-      height(state.player.x, state.player.z) + 0.8,
+      surfaceHeight(state.player.x, state.player.z) + 0.8,
       state.player.z,
     );
   if (battle) {
-    target = new T.Vector3(0, 0.7, 0.5);
-    dist = 23;
-    angle = 0.3;
+    target = new T.Vector3(0, 1.2, 0.5);
+    dist = 23 * Math.max(1, 1 / camera.aspect);
+    angle = 0.3 + Math.sin(time*.12)*.05;
+    if(battle.stage.action){const a=battle.stage.action;dist-=Math.sin(Math.min(1,a.elapsed/a.duration)*Math.PI)*2;}
     battle.stage.update(dt, time);
   }
+  if(interior && !battle){dist=7; target.y=player.position.y+1.1;}
   cameraTarget.lerp(target, 1 - Math.exp(-dt * 4));
   cameraPos.set(
     cameraTarget.x + Math.sin(angle) * dist * 0.75,
-    cameraTarget.y + dist * 0.84,
+    cameraTarget.y + dist * (battle ? 0.35 : interior ? 0.22 : 0.84),
     cameraTarget.z + Math.cos(angle) * dist * 0.75,
   );
+  if(interior&&!battle){cameraPos.x=T.MathUtils.clamp(cameraPos.x,-8.2,8.2);cameraPos.z=T.MathUtils.clamp(cameraPos.z,-7.2,7.2);cameraPos.y=Math.min(cameraPos.y,(state.player.y||0)>3.3?6.8:3.05);}
   camera.position.lerp(cameraPos, 1 - Math.exp(-dt * 4));
   camera.lookAt(cameraTarget);
 }
@@ -1739,13 +1759,17 @@ function updateUI() {
       }
     }
   drawMap($("minimap"));
-  world.sync(state);
+  syncWorld();
 }
+let contextLost=false;
+canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();contextLost=true;if(started)persist();toast('Restauration du rendu…');});
+canvas.addEventListener('webglcontextrestored',()=>{contextLost=false;applySettings();renderer.setSize(Math.max(1,innerWidth),Math.max(1,innerHeight));camera.updateProjectionMatrix();toast('Le rendu est rétabli.');});
 const clock = new T.Clock();
 function loop() {
   requestAnimationFrame(loop);
   const raw = clock.getDelta(),
     dt = Math.min(raw, 0.05);
+  if(contextLost || document.hidden)return;
   time += dt;
   windUniform.value = time;
   frames++;
@@ -1775,7 +1799,8 @@ function loop() {
         .join(" · ")}`;
   }
   if (started) {
-    const active = $("modal").hidden && !battle;
+    const active = $("modal").hidden && !battle && !fishingSession;
+    fishingSession?.update(dt,time);
     if (active) {
       advanceTime(dt);
       movePlayer(dt);
@@ -1785,9 +1810,9 @@ function loop() {
         saveElapsed = 0;
       }
     }
-    world.update(dt, time, state, state.player.x, state.player.z);
+    if(!interior && !battle)world.update(dt, time, state, state.player.x, state.player.z);
     if (battle) battle.wild.mesh.visible = true;
-    updateLighting();
+    if(!interior && !battle)updateLighting();
     uiElapsed += dt;
     if (uiElapsed > 0.3) {
       updateUI();
@@ -1797,12 +1822,12 @@ function loop() {
     if (building) {
       preview.position.set(
         building.x,
-        height(building.x, building.z),
+        surfaceHeight(building.x, building.z),
         building.z,
       );
       preview.rotation.y = building.r;
       const valid = canPlace(state, building.x, building.z, (x, z, r) =>
-        world.collides(x, z, r),
+        solidAt(x, z, r), building.type, building.r, building.movingIndex
       );
       preview.traverse((o) => {
         if (o.isMesh) o.material.color.set(valid ? "#a0d4a4" : "#dc8272");
@@ -1815,10 +1840,11 @@ function loop() {
   if (player)
     foliageFocus.value.copy(player.position).add(new T.Vector3(0, 1, 0));
   foliageCamera.value.copy(camera.position);
-  renderer.render(battle ? battle.stage.scene : scene, camera);
+  if(player)updateCutawayScreen(camera,renderer,foliageFocus.value);
+  renderer.render(battle ? battle.stage.scene : currentScene(), camera);
 }
 window.addEventListener("resize", () => {
-  camera.aspect = innerWidth / innerHeight;
+  camera.aspect = Math.max(1,innerWidth) / Math.max(1,innerHeight);
   camera.updateProjectionMatrix();
   applySettings();
   renderer.setSize(innerWidth, innerHeight);
@@ -1854,3 +1880,6 @@ if ("serviceWorker" in navigator)
   navigator.serviceWorker
     .register("./sw.js")
     .catch((e) => console.warn("Cache hors ligne indisponible", e));
+
+// Development harness imports; no automatic test execution.
+export { state, world, player, camera, renderer, input, begin, enterHome, leaveHome, openMenu, closeModal, startBuild, placeBuilding, cancelBuild, furnishingMenu, movePlayer, updateCamera, syncWorld, selectTool, fishing, startBattle, endBattle, interior, battle, applyMove };

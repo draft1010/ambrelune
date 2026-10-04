@@ -1,3 +1,4 @@
+import { LABELS, EXTRA_RECIPES } from "./homestead.js";
 export const SPECIES = [
   {
     id: "velune",
@@ -138,8 +139,24 @@ export const SPECIES = [
     desc: "Le dernier jardinier des ruines. Son cœur attend que les jardins refleurissent.",
     moves: ["liane", "roc", "pollen"],
   },
+{"id":"melipom","name":"Mélipom","element":"nature","color":"#d7b644","accent":"#d7b644","shape":"wing","hp":44,"atk":14,"def":11,"speed":17,"rarity":1,"habitat":"Clairières de l’est","temper":"joueuse","desc":"Une abeille cuirassée qui récolte le pollen des fleurs sauvages.","moves":["dard","pollen","garde"]},
+{"id":"dracendre","name":"Dracendre","element":"feu","color":"#d77b4f","accent":"#d77b4f","shape":"ember","hp":48,"atk":18,"def":10,"speed":14,"rarity":3,"habitat":"Rochers de l’est","temper":"territoriale","desc":"Ses petites ailes entretiennent les braises de son souffle.","moves":["flamme","braise","garde"]},
+{"id":"rainette","name":"Rainélie","element":"eau","color":"#6faa88","accent":"#6faa88","shape":"fin","hp":58,"atk":12,"def":14,"speed":10,"rarity":1,"habitat":"Rives orientales","temper":"joueuse","desc":"Cette grenouille bondit entre les roseaux et projette des bulles.","moves":["bulle","onde","garde"]},
+{"id":"nivours","name":"Nivours","element":"eau","color":"#9ccee1","accent":"#9ccee1","shape":"shell","hp":62,"atk":15,"def":15,"speed":7,"rarity":2,"habitat":"Hauteurs du nord","temper":"timide","desc":"Sa fourrure conserve une rosée glacée qu’il disperse en grésil.","moves":["gresil","onde","garde"]},
+{"id":"galetis","name":"Galétis","element":"terre","color":"#a99880","accent":"#a99880","shape":"shell","hp":57,"atk":15,"def":18,"speed":6,"rarity":2,"habitat":"Rochers de l’est","temper":"curieuse","desc":"Un galet animé qui rassemble des fragments de schiste autour de lui.","moves":["eboulis","roc","garde"]},
+{"id":"alizelle","name":"Alizelle","element":"air","color":"#c4b9dd","accent":"#c4b9dd","shape":"wing","hp":39,"atk":14,"def":9,"speed":21,"rarity":1,"habitat":"Hauteurs du nord","temper":"timide","desc":"Ce petit oiseau accompagne les courants qui traversent les crêtes.","moves":["rafale","elan","garde"]},
+{"id":"germousse","name":"Germousse","element":"nature","color":"#88bb6a","accent":"#88bb6a","shape":"leaf","hp":51,"atk":12,"def":13,"speed":11,"rarity":1,"habitat":"Bois de l’est","temper":"curieuse","desc":"Une gelée végétale dont les graines s’accrochent au sous-bois.","moves":["graine","pollen","garde"]},
+{"id":"aurelievre","name":"Aurélièvre","element":"lumiere","color":"#ead69d","accent":"#ead69d","shape":"lantern","hp":45,"atk":16,"def":10,"speed":18,"rarity":3,"habitat":"Clairières du nord","temper":"timide","desc":"Ses longues oreilles captent la lumière et la renvoient en rayons dorés.","moves":["halo","eclat","garde"]},
 ];
 export const MOVES = {
+dard:{"name":"Dard floral","element":"nature","power":24,"energy":6,"accuracy":0.98},
+flamme:{"name":"Souffle de braise","element":"feu","power":32,"energy":10,"accuracy":0.9,"status":"brulure"},
+bulle:{"name":"Bulles rebondissantes","element":"eau","power":25,"energy":6,"accuracy":0.97},
+gresil:{"name":"Grésil de rosée","element":"eau","power":30,"energy":8,"accuracy":0.9},
+eboulis:{"name":"Éboulis","element":"terre","power":34,"energy":10,"accuracy":0.87},
+rafale:{"name":"Rafale des crêtes","element":"air","power":28,"energy":7,"accuracy":0.97},
+graine:{"name":"Graines bondissantes","element":"nature","power":22,"energy":4,"accuracy":0.95},
+halo:{"name":"Rayon du matin","element":"lumiere","power":30,"energy":9,"accuracy":1},
   liane: {
     name: "Liane vive",
     power: 21,
@@ -204,6 +221,7 @@ export const ELEMENT_NAMES = {
   lumiere: "Lumière",
 };
 export const ITEMS = {
+  ...LABELS,
   wood: "Bois",
   stone: "Pierre",
   fiber: "Fibres",
@@ -223,6 +241,7 @@ export const ITEMS = {
   fertilizer: "Compost",
 };
 export const RECIPES = [
+  ...EXTRA_RECIPES,
   {
     id: "seal",
     name: "Lien de résonance",

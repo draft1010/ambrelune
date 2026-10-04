@@ -1,3 +1,4 @@
+import { getTerrainTextures } from './village.js';
 import { T, Factory, tree, flower, random, furnishing } from "./art.js";
 import { modelCreature } from "./monster-models.js";
 import { species } from "../systems/data.js";
@@ -10,12 +11,13 @@ function ease(t) {
 
 function disposeObject(root) {
   root.traverse((o) => {
-    if (o.geometry?.dispose) o.geometry.dispose();
+    if (o.isInstancedMesh) o.dispose();
+    if (o.geometry?.dispose && !o.geometry.userData.sharedAsset) o.geometry.dispose();
     const mats = Array.isArray(o.material) ? o.material : [o.material];
     for (const m of mats) {
-      if (!m) continue;
+      if (!m || m.userData.sharedAsset) continue;
       for (const k of ["map", "normalMap", "roughnessMap", "metalnessMap", "alphaMap", "emissiveMap"]) {
-        m[k]?.dispose?.();
+        if (!m[k]?.userData.sharedAsset) m[k]?.dispose?.();
       }
       m.dispose?.();
     }
@@ -51,9 +53,9 @@ export class BattleStage {
     this.scene.background = new T.Color("#c8d8cf");
     this.scene.fog = new T.Fog("#c8d8cf", 18, 65);
 
-    this.scene.add(new T.HemisphereLight("#fff4db", "#6c8d72", 2.3));
+    this.scene.add(new T.HemisphereLight("#fff4db", "#6c8d72", 1.6));
 
-    const sun = new T.DirectionalLight("#ffe4b1", 2.85);
+    const sun = new T.DirectionalLight("#ffe4b1", 2.2);
     sun.position.set(-10, 20, 12);
     sun.castShadow = true;
     sun.shadow.mapSize.set(1024, 1024);
@@ -77,33 +79,12 @@ export class BattleStage {
     const f = new Factory(g, true);
     const r = random(991);
 
-    // Sol principal plus riche et cohérent avec Ambrelune.
-    f.part("cylinder", "#6e8557", 0, -0.45, 0, 31, 0.5, 31);
-    f.part("cylinder", "#839867", 0, -0.12, 0, 11.2, 0.18, 11.2);
-    f.part("cylinder", "#9e936f", 0, -0.04, 0, 7.1, 0.1, 7.1);
-    f.part("torus", "#adb780", 0, -0.01, 0, 7.15, 7.15, 7.15, Math.PI / 2);
-    f.part("torus", "#91a271", 0, -0.08, 0, 10.85, 10.85, 10.85, Math.PI / 2);
-
-    for (let i = 0; i < 44; i++) {
-      const a = (i / 44) * Math.PI * 2;
-      const rad = 7.45 + (i % 2) * 0.25;
-      const x = Math.cos(a) * rad;
-      const z = Math.sin(a) * rad;
-      f.part(
-        "box",
-        i % 3 ? "#c3b696" : "#a8a28e",
-        x,
-        -0.01,
-        z,
-        0.72,
-        0.08,
-        0.48,
-        0.03,
-        -a + Math.PI / 2,
-        0.12,
-      );
-    }
-
+    const terrain = new T.PlaneGeometry(150,150,36,36);terrain.rotateX(-Math.PI/2);
+    const pos=terrain.attributes.position,colors=[];
+    for(let i=0;i<pos.count;i++){const x=pos.getX(i),z=pos.getZ(i),dist=Math.hypot(x,z);pos.setY(i,dist<8?-.04:(Math.sin(x*.16)*Math.cos(z*.13)*1.3)*Math.min(1,(dist-8)/12)-.04);const c=new T.Color('#82986b');c.offsetHSL(0,0,Math.sin(x*.24+z*.17)*.04);colors.push(c.r,c.g,c.b);}
+    for(let i=0;i<terrain.attributes.uv.count;i++){terrain.attributes.uv.setXY(i,terrain.attributes.uv.getX(i)*50,terrain.attributes.uv.getY(i)*50);}
+    terrain.setAttribute('color',new T.Float32BufferAttribute(colors,3));terrain.computeVertexNormals();
+    const meadow=new T.Mesh(terrain,new T.MeshStandardMaterial({vertexColors:true,roughness:1,map:getTerrainTextures().grass}));meadow.receiveShadow=true;this.scene.add(meadow);this.meadow=meadow;
     for (let i = 0; i < 210; i++) {
       const a = r() * Math.PI * 2;
       const rad = 8.5 + r() * 19;
@@ -115,7 +96,7 @@ export class BattleStage {
         0,
         z,
         ["#dcc4ab", "#d8b6c6", "#f0d18a", "#b5c7a1"][i % 4],
-        1.2 + r() * 0.6,
+        0.6 + r() * 0.45,
       );
       if (i % 7 === 0) {
         f.part(
@@ -133,30 +114,6 @@ export class BattleStage {
       }
     }
 
-    // Décor de fond : bancs, clôtures, lampes, petits vestiges.
-    for (const [x, z, rot] of [
-      [-11.5, -9.8, 0.52],
-      [11.7, 10, -2.55],
-    ]) {
-      furnishing(f, "bench", x, 0, z, rot);
-    }
-    for (const [x, z, rot] of [
-      [-14, -2, 1.57],
-      [-14, 2.2, 1.57],
-      [14, -2.4, 1.57],
-      [14, 2.1, 1.57],
-      [0, -14.2, 0],
-      [0, 14.2, 0],
-    ]) {
-      furnishing(f, "fence", x, 0, z, rot);
-    }
-    for (const [x, z] of [
-      [-10.8, -12.4],
-      [10.6, 12.2],
-    ]) {
-      furnishing(f, "lamp", x, 0, z);
-    }
-
     for (const [x, z, v, s] of [
       [-17, -14, 0, 0.95],
       [16, 14, 1, 0.92],
@@ -168,23 +125,10 @@ export class BattleStage {
       tree(f, x, 0, z, s, v);
     }
 
-    for (const [x, z] of [
-      [-7, -12],
-      [7.4, 12],
-      [-13, 7],
-      [13, -7],
-    ]) {
-      f.part("box", "#9b988d", x, 1.05, z, 0.8, 2.05, 0.8);
-      f.part("box", "#c4bb9d", x, 2.18, z, 1.05, 0.22, 1.05);
-      f.part("sphere", "#7fa277", x, 2.45, z, 0.38, 0.22, 0.38);
-    }
-
-    // Détails de profondeur.
-    for (let i = 0; i < 36; i++) {
-      const a = (i / 36) * Math.PI * 2;
-      const x = Math.cos(a) * 12.8;
-      const z = Math.sin(a) * 12.8;
-      f.part("sphere", i % 2 ? "#8a917d" : "#aba48e", x, 0.13, z, 0.34, 0.18, 0.3, 0, i * 0.33);
+    // Irregular rocks and shrubs form the edge of a clearing, without an arena ring.
+    for(let i=0;i<28;i++) {
+      const x=(r()-.5)*48,z=-10-r()*19;
+      f.part('sphere',i%2?'#8a917d':'#98a97c',x,.2,z,.4+r()*1.2,.3+r()*.6,.5+r(),0,r()*3);
     }
 
     f.flush();
@@ -214,6 +158,8 @@ export class BattleStage {
     this.scene.add(this.ring);
 
     this.particles = [];
+    this.particlePool = [];
+    this.pendingImpact = null;
     this.effects = [];
     this.action = null;
     this.capture = 0;
@@ -268,7 +214,7 @@ export class BattleStage {
     }
 
     this.spawnMoveEffect(moveId, from, to, color, allyAttacking, opts);
-    this.spawnImpactParticles(to.x, Math.max(0.2, to.y), to.z, color, moveId, opts.miss);
+    this.pendingImpact={delay:.46,to,color,moveId,miss:opts.miss};
   }
 
   support(allySide, moveId = "garde", color = "#f4d688") {
@@ -285,7 +231,17 @@ export class BattleStage {
   }
 
   spawnMoveEffect(moveId, from, to, color, allyAttacking, opts = {}) {
+    const special={
+      dard:{coreColor:'#a6cc62',accent:'#f3d472',size:.12,life:.32,arc:.1,trail:18,tailSpread:.05,shard:true},
+      flamme:{coreColor:'#fa703b',accent:'#ffd47b',size:.32,life:.6,arc:.22,trail:36,tailSpread:.32},
+      bulle:{coreColor:'#77dce6',accent:'#e3fcff',size:.15,life:.65,arc:.85,trail:14,tailSpread:.15},
+      gresil:{coreColor:'#b7e9fb',accent:'#ffffff',size:.12,life:.4,arc:1.4,trail:20,tailSpread:.13,shard:true},
+      graine:{coreColor:'#88ad50',accent:'#ded18e',size:.12,life:.55,arc:.75,trail:12,tailSpread:.09},
+      halo:{coreColor:'#ffe5a0',accent:'#ffffff',size:.29,life:.35,arc:0,trail:32,tailSpread:.14,shard:true}
+    }[moveId];
+    if(special){for(let i=0;i<(['bulle','gresil','graine'].includes(moveId)?3:1);i++){const origin=from.clone();origin.z+=(i-1)*.3;this.spawnProjectile(origin,to,{...special,arc:special.arc+i*.18});}return;}
     switch (moveId) {
+      case "flamme":
       case "braise":
         this.spawnProjectile(from, to, {
           coreColor: "#ff8d41",
@@ -297,6 +253,8 @@ export class BattleStage {
           tailSpread: 0.22,
         });
         break;
+      case "bulle":
+case "gresil":
       case "onde":
         this.spawnProjectile(from, to, {
           coreColor: "#77d5e9",
@@ -308,6 +266,7 @@ export class BattleStage {
           tailSpread: 0.26,
         });
         break;
+      case "halo":
       case "eclat":
         this.spawnProjectile(from, to, {
           coreColor: "#fff4b0",
@@ -320,15 +279,19 @@ export class BattleStage {
           shard: true,
         });
         break;
+      case "rafale":
       case "souffle":
         this.spawnWindBlades(from, to);
         break;
+      case "eboulis":
       case "roc":
         this.spawnRockVolley(from, to);
         break;
       case "liane":
         this.spawnVineWhip(from, to);
         break;
+      case "dard":
+case "graine":
       case "pollen":
         this.spawnPollenCloud(from, to);
         break;
@@ -377,7 +340,7 @@ export class BattleStage {
     }));
 
     const light = new T.PointLight(cfg.coreColor, 2.8, 6, 2);
-    group.add(light);
+    // Emissive halo supplies the glow without an extra per-pixel light.
 
     this.addEffect(group, cfg.life, (effect, dt, progress) => {
       const p = ease(progress);
@@ -622,7 +585,7 @@ export class BattleStage {
       phase: Math.random() * Math.PI * 2,
     }));
     const light = new T.PointLight("#dff8ff", 2.4, 5, 2);
-    group.add(light);
+    // Emissive surfaces provide this glow.
     this.addEffect(group, 0.95, (effect, dt, progress) => {
       halo.scale.setScalar(1 + Math.sin(progress * Math.PI) * 0.22);
       halo.material.opacity = 0.22 * (1 - progress * 0.35);
@@ -687,8 +650,9 @@ export class BattleStage {
       elan: color,
     }[moveId] || color;
 
-    const g = new T.BufferGeometry();
-    const p = new Float32Array(90);
+    const reused=this.particlePool.pop();
+    const g = reused?.geometry || new T.BufferGeometry();
+    const p = g.attributes.position?.array || new Float32Array(90);
     const vel = [];
 
     for (let i = 0; i < 30; i++) {
@@ -704,7 +668,7 @@ export class BattleStage {
 
     g.setAttribute("position", new T.BufferAttribute(p, 3));
 
-    const m = new T.Points(
+    const m = reused || new T.Points(
       g,
       new T.PointsMaterial({
         size: moveId === "roc" ? 0.24 : 0.18,
@@ -715,6 +679,8 @@ export class BattleStage {
       }),
     );
 
+    m.material.color.set(tint);m.material.opacity=miss?.5:1;m.material.size=moveId==="roc"?.24:.18;
+    g.attributes.position.needsUpdate=true;g.computeBoundingSphere();
     this.scene.add(m);
     this.particles.push({ m, vel, life: 0.8, gravity: moveId === "roc" ? 9 : 7 });
 
@@ -745,7 +711,7 @@ export class BattleStage {
 
     const flash = new T.PointLight(tint, miss ? 1.5 : 3.2, moveId === "eclat" ? 8 : 7, 2);
     flash.position.set(x, 1.25, z);
-    this.scene.add(flash);
+    // Impact ring and emissive particles provide light without a new light pass.
     this.effects.push({
       root: flash,
       life: 0.24,
@@ -757,6 +723,7 @@ export class BattleStage {
   }
 
   update(dt, t) {
+    if(this.pendingImpact){this.pendingImpact.delay-=dt;if(this.pendingImpact.delay<=0){const p=this.pendingImpact;this.pendingImpact=null;this.spawnImpactParticles(p.to.x,p.to.y,p.to.z,p.color,p.moveId,p.miss);}}
     this.ally.position.copy(this.allyBase);
     this.enemy.position.copy(this.enemyBase);
 
@@ -801,7 +768,7 @@ export class BattleStage {
       attacker.position.addScaledVector(dir, lunge * amp);
       if (a.moveId === "elan") attacker.position.y += Math.sin(Math.min(1, p * 1.2) * Math.PI) * 0.15;
 
-      if (p >= 0.3 && !a.hitTriggered) {
+      if (a.elapsed >= 0.46 && !a.hitTriggered) {
         a.hitTriggered = true;
         if (!a.miss) {
           if (a.ko) defender.userData.playDeath?.();
@@ -852,8 +819,7 @@ export class BattleStage {
       p.m.material.opacity = Math.max(0, p.life / 0.8);
       if (p.life <= 0) {
         this.scene.remove(p.m);
-        p.m.geometry.dispose();
-        p.m.material.dispose();
+        this.particlePool.push(p.m);
         this.particles.splice(this.particles.indexOf(p), 1);
       }
     }
@@ -871,6 +837,7 @@ export class BattleStage {
   }
 
   dispose() {
+    this.meadow.geometry.dispose();this.meadow.material.dispose();
     this.ring.geometry.dispose();
     this.ring.material.dispose();
     this.sun.shadow.map?.dispose();
@@ -879,20 +846,10 @@ export class BattleStage {
       if (o.isInstancedMesh) o.dispose();
     });
 
-    for (const actor of [this.ally, this.enemy]) {
-      actor.traverse((o) => {
-        if (!o.isMesh && !o.isSkinnedMesh) return;
-        if (o.geometry && !o.geometry.isBufferGeometry) return;
-        o.geometry?.dispose?.();
-        const mats = Array.isArray(o.material) ? o.material : [o.material];
-        mats.forEach((m) => {
-          if (!m) return;
-          m.map?.dispose?.();
-          m.dispose?.();
-        });
-      });
-    }
+    for (const actor of [this.ally,this.enemy]) actor.userData.dispose?.();
 
+    for(const m of this.particlePool){m.geometry.dispose();m.material.dispose();}
+    this.particlePool=[];
     for (const p of this.particles) {
       p.m.geometry.dispose();
       p.m.material.dispose();

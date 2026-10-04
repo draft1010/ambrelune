@@ -43,7 +43,12 @@ export class Input {
       this.running = false;
     });
     canvas.addEventListener("contextmenu", (e) => e.preventDefault());
+    let holdTimer=null, origin=null, held=false;
+    canvas.addEventListener("dblclick",e=>{this.target=null;this.route=[];this.onObject?.(e.clientX,e.clientY);});
     canvas.addEventListener("pointerdown", (e) => {
+      origin={x:e.clientX,y:e.clientY};held=false;
+      clearTimeout(holdTimer);
+      if(e.button===0)holdTimer=setTimeout(()=>{if(this.drag&&!this.pointerMoved){held=!!this.onObject?.(e.clientX,e.clientY);this.target=null;}},550);
       onStart();
       canvas.focus();
       this.pointerMoved = false;
@@ -57,7 +62,7 @@ export class Input {
     });
     canvas.addEventListener("pointermove", (e) => {
       if (this.drag) {
-        if (Math.hypot(e.clientX - this.drag.x, e.clientY - this.drag.y) > 4)
+        if (Math.hypot(e.clientX - origin.x, e.clientY - origin.y) > 8)
           this.pointerMoved = true;
         if (this.drag.right) this.angle -= (e.clientX - this.drag.x) * 0.008;
         this.drag.x = e.clientX;
@@ -65,10 +70,12 @@ export class Input {
       }
     });
     canvas.addEventListener("pointerup", (e) => {
-      if (this.drag && !this.drag.right && !this.pointerMoved && this.enabled)
+      clearTimeout(holdTimer);
+      if (this.drag && !held && !this.drag.right && !this.pointerMoved && this.enabled)
         this.onGround?.(e.clientX, e.clientY);
       this.drag = null;
     });
+    canvas.addEventListener("pointercancel",()=>{clearTimeout(holdTimer);this.drag=null;});
     canvas.addEventListener(
       "wheel",
       (e) => {

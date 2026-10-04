@@ -338,6 +338,7 @@ export function character(kind = "player", fallbackColor = "#698895") {
     if (!(dt >= 0 && dt < 0.2)) dt = state.lastT ? Math.max(0, Math.min(0.05, t - state.lastT)) : 0.016;
     state.lastT = t;
     for (const mixer of state.mixers) mixer.update(dt);
+    state.alignGrip?.();
     if (t < state.oneShotUntil) return;
     const desired = running ? "Sprint_Loop" : moving ? "Walk_Loop" : state.idle;
     if (desired !== state.current) setAction(desired, false, t);
@@ -390,9 +391,15 @@ export function character(kind = "player", fallbackColor = "#698895") {
       const hand = base.getObjectByName("hand_r") || base.getObjectByName("hand_l");
       const anchor = new T.Group();
       anchor.name = "AmbreluneToolAnchor";
-      anchor.position.set(0, 0.02, 0.01);
-      anchor.rotation.set(0, 0, 0);
+      anchor.position.set(0, .085, .015);
+      // Local +Y runs from wrist to fingers. Place the grip inside the palm.
+      anchor.rotation.set(0,0,0);
+      anchor.scale.setScalar(1/scale);
       if (hand) hand.add(anchor); else base.add(anchor);
+      // Keep the can upright while following the animated palm, independently of wrist roll.
+      const handQ=new T.Quaternion(),bodyQ=new T.Quaternion();
+      state.alignGrip=()=>{anchor.parent.getWorldQuaternion(handQ);group.getWorldQuaternion(bodyQ);anchor.quaternion.copy(handQ.invert()).multiply(bodyQ);};
+      state.alignGrip();
       // Preserve only the equipped tool while the HD character was still loading.
       // The procedural fallback arm also contains its own elbow/hand hierarchy, which must not migrate.
       const equipped = state.toolAnchor.children.find((c) => c.name === "HeldTool");
@@ -416,6 +423,6 @@ export function characterActionForTool(tool) {
   if (tool === "water") return "Farm_Watering";
   if (tool === "hoe") return "Farm_PlantSeed";
   if (tool === "axe") return "TreeChopping_Loop";
-  if (tool === "pick") return "Farm_Harvest";
+  if (tool === "pick") return "TreeChopping_Loop";
   return "Interact";
 }

@@ -15,6 +15,21 @@ import { T, random, house, flower, furnishing } from "./art.js";
 
 const TERRAIN_ROOT = new URL("../../assets/terrain/", import.meta.url);
 let terrainTextures = null;
+let gravelTexture=null;
+function getGravelTexture(){
+ if(gravelTexture)return gravelTexture;
+ const c=document.createElement('canvas');c.width=c.height=256;const ctx=c.getContext('2d'),r=random(48321);
+ ctx.fillStyle='#a39c89';ctx.fillRect(0,0,256,256);
+ for(let i=0;i<2100;i++){
+  const x=r()*256,y=r()*256,w=1+r()*3,h=.7+r()*2,angle=r()*Math.PI;
+  const tone=145+Math.floor(r()*62);
+  for(const dx of [-256,0,256])for(const dy of [-256,0,256]){
+   ctx.fillStyle='rgba(70,64,54,.22)';ctx.beginPath();ctx.ellipse(x+dx+.5,y+dy+.7,w+.4,h+.3,angle,0,Math.PI*2);ctx.fill();
+   ctx.fillStyle='rgb('+tone+','+(tone-5)+','+(tone-17)+')';ctx.beginPath();ctx.ellipse(x+dx,y+dy,w,h,angle,0,Math.PI*2);ctx.fill();
+  }
+ }
+ gravelTexture=new T.CanvasTexture(c);gravelTexture.wrapS=gravelTexture.wrapT=T.RepeatWrapping;gravelTexture.colorSpace=T.SRGBColorSpace;gravelTexture.anisotropy=4;gravelTexture.userData.sharedAsset=true;return gravelTexture;
+}
 
 function loadTerrainTexture(name, color = true) {
   const loader = new T.TextureLoader();
@@ -29,7 +44,7 @@ function loadTerrainTexture(name, color = true) {
   return texture;
 }
 
-function getTerrainTextures() {
+export function getTerrainTextures() {
   if (terrainTextures) return terrainTextures;
 
   terrainTextures = {
@@ -72,6 +87,7 @@ export function groundMaterial() {
     shader.uniforms.ambLowQuality = { value: material.userData.lowQuality ? 1 : 0 };
     material.userData.ambLowUniform = shader.uniforms.ambLowQuality;
     shader.uniforms.ambGrass = { value: tex.grass };
+    shader.uniforms.ambGravel = { value: getGravelTexture() };
     shader.uniforms.ambGrassDetail = { value: tex.grassDetail };
     shader.uniforms.ambGrassNormal = { value: tex.grassNormal };
 
@@ -94,6 +110,7 @@ export function groundMaterial() {
     shader.fragmentShader = `
       uniform float ambLowQuality;
       uniform sampler2D ambGrass;
+      uniform sampler2D ambGravel;
       uniform sampler2D ambGrassDetail;
       uniform sampler2D ambGrassNormal;
 
@@ -172,9 +189,12 @@ export function groundMaterial() {
         float diagonalX = -9.0 - (p.y-8.0)*.9;
         road = max(
           road,
-          ambRange(p.y,7.0,31.0,.85) * ambStrip(p.x-diagonalX,1.45,.64)
+          ambRange(p.y,7.0,20.0,.85) * ambStrip(p.x-diagonalX,1.45,.64)
         );
 
+        road=max(road,ambRange(p.x,-32.7,-19.,.5)*ambStrip(p.y-20.,.85,.35));
+        road=max(road,ambRange(p.y,19.,38.,.5)*ambStrip(p.x+31.8,.75,.35));
+        road=max(road,ambRange(p.x,-38.,-31.,.5)*ambStrip(p.y-29.,.8,.35));
         float east = ambRange(p.x,-9.0,52.0,.85);
         road = max(road, east * ambStrip(p.y-8.0,1.7,.60));
         road = max(road, east * ambStrip(p.y+30.0,1.5,.58));
@@ -185,9 +205,19 @@ export function groundMaterial() {
           ambRange(p.x,27.0,52.0,.95) * ambStrip(p.x-curveX,1.7,.66)
         );
 
+        // Courtyards and house approaches reuse the existing soil layer.
+        float yards = ambRange(p.x,-48.,6.,.8) * max(ambStrip(p.y+25.,4.2,1.2),max(ambStrip(p.y+44.,4.5,1.2),ambStrip(p.y+5.,3.5,1.2)));
+        road=max(road,yards*.94);
+        road=max(road,ambRange(p.x,-42.,-31.,1.)*ambRange(p.y,27.,31.,1.));
         return clamp(road,0.0,1.0);
       }
 
+      float ambGravelMask(vec2 p){
+       float yards=ambRange(p.x,-48.,6.,.9)*max(ambStrip(p.y+25.,4.,1.),max(ambStrip(p.y+44.,4.,1.),ambStrip(p.y+5.,3.2,.8)));
+       float shop=ambRange(p.x,-40.,-32.,.7)*ambRange(p.y,-3.,6.,.7);
+       float entry=ambRange(p.x,-41.,-32.,.7)*ambRange(p.y,26.5,31.,.7);
+       return clamp(max(yards,max(shop,entry)),0.,1.);
+      }
       /*
        * Anti-répétition : chaque matériau est lu deux fois avec
        * des échelles et rotations différentes, puis mélangé par un bruit macro.
@@ -305,6 +335,8 @@ export function groundMaterial() {
 
       diffuseColor.rgb = groundColor;
       }
+      float gravelArea=ambGravelMask(p);
+      if(gravelArea>.01){vec3 gravel=texture2D(ambGravel,p/2.8).rgb;diffuseColor.rgb=mix(diffuseColor.rgb,gravel,gravelArea*.96);}
       `,
     );
 
@@ -402,6 +434,7 @@ export function villageDetails(f, world) {
     return ground.attributes.position.getY(row * 181 + col);
   }
   function pot(x, z, color = "#ab654e", scale = 1) {
+    world.collider(x,z,.32*scale);
     const y = yAt(x, z);
     f.part(
       "taper",
@@ -438,6 +471,7 @@ export function villageDetails(f, world) {
       );
   }
   function crate(x, z) {
+    world.collider(x,z,0,"rect",.85,.8);
     const y = yAt(x, z);
     f.part("box", "#aa774d", x, y + 0.36, z, 0.85, 0.7, 0.8, 0, 0, 0, "wood");
     for (const xx of [-0.37, 0.37])
@@ -458,7 +492,7 @@ export function villageDetails(f, world) {
   for (const [x, z, w, d, v] of [
     [-19, -10, 5.3, 4.6, 0],
     [2, 0, 5.4, 5, 2],
-    [-20, 17, 4.4, 4.3, 3],
+    [-36, 0, 4.4, 4.3, 3],
   ]) {
     const y = yAt(x, z);
     house(f, x, y, z, w, d, 3.1, v);
@@ -591,6 +625,7 @@ export function villageDetails(f, world) {
       f.part("cone", "#e2c28e", x, y + 3.76, z, 1.2, 0.42, 1.2, 0, 0.4);
     }
     world.collider(x, z, 0.75);
+    for(const dx of [-1,1])world.collider(x+dx,z,.28);
   }
   // Bunting follows a gentle sag above the approach to the square.
   for (const z of [-7, 11]) {
@@ -630,14 +665,14 @@ export function villageDetails(f, world) {
   }
   // Irregular hedgerows, flower banks and small stones soften the formal grid.
   for (const [cx, cz, len] of [
-    [-16, -15, 5],
     [-1, -13, 5],
     [-22, 12, 5],
-    [-33, 5, 7],
+    [-30, 5, 4],
     [-38, -5, 5],
     [-4, 16, 5],
-    [4, 9, 4],
+    [4, 12.5, 4],
   ]) {
+    world.collider(cx,cz,0,"rect",len+1,1.6);
     for (let i = 0; i < len * 3; i++) {
       const x = cx + i * 0.33 - len * 0.5,
         z = cz + (r() - 0.5) * 1.1,
@@ -680,17 +715,17 @@ export function villageDetails(f, world) {
   for (const [x, z] of [
     [-13, -8],
     [-4, -8],
-    [-24, 6],
-    [-36, 6],
+    [-24, 4.5],
+    [-41, 4.5],
     [-1, 14],
-    [-15, 12],
+    [-18, 14],
     [-31, -12],
   ]) {
     pot(x, z);
     crate(x + 0.8, z + 0.25);
   }
   // Ground-level patches are broken up with tiny blades and fallen petals.
-  for (let i = 0; i < 4800; i++) {
+  for (let i = 0; i < 1600; i++) {
     const x = -47 + r() * 54,
       z = -28 + r() * 49;
     if (world.collides(x, z, 0.1)) continue;

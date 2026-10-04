@@ -14,6 +14,14 @@ const loader = new GLTFLoader();
 T.Cache.enabled = true;
 
 const MODEL_CONFIG = {
+melipom: {url:'./assets/monsters/melipom.gltf',height:1.4,hover:0.2,idle:['Idle','Flying_Idle'],move:['Walk','Fast_Flying','Run'],attack:['Bite_Front','Punch','Headbutt','Jump'],hit:['HitReact','HitRecieve'],death:['Death']},
+dracendre: {url:'./assets/monsters/dracendre.gltf',height:1.4,hover:0.2,idle:['Idle','Flying_Idle'],move:['Walk','Fast_Flying','Run'],attack:['Bite_Front','Punch','Headbutt','Jump'],hit:['HitReact','HitRecieve'],death:['Death']},
+rainette: {url:'./assets/monsters/rainette.gltf',height:1.7,hover:0,idle:['Idle','Flying_Idle'],move:['Walk','Fast_Flying','Run'],attack:['Bite_Front','Punch','Headbutt','Jump'],hit:['HitReact','HitRecieve'],death:['Death']},
+nivours: {url:'./assets/monsters/nivours.gltf',height:1.4,hover:0,idle:['Idle','Flying_Idle'],move:['Walk','Fast_Flying','Run'],attack:['Bite_Front','Punch','Headbutt','Jump'],hit:['HitReact','HitRecieve'],death:['Death']},
+galetis: {url:'./assets/monsters/galetis.gltf',height:1.4,hover:0.2,idle:['Idle','Flying_Idle'],move:['Walk','Fast_Flying','Run'],attack:['Bite_Front','Punch','Headbutt','Jump'],hit:['HitReact','HitRecieve'],death:['Death']},
+alizelle: {url:'./assets/monsters/alizelle.gltf',height:1.4,hover:0,idle:['Idle','Flying_Idle'],move:['Walk','Fast_Flying','Run'],attack:['Bite_Front','Punch','Headbutt','Jump'],hit:['HitReact','HitRecieve'],death:['Death']},
+germousse: {url:'./assets/monsters/germousse.gltf',height:1.4,hover:0,idle:['Idle','Flying_Idle'],move:['Walk','Fast_Flying','Run'],attack:['Bite_Front','Punch','Headbutt','Jump'],hit:['HitReact','HitRecieve'],death:['Death']},
+aurelievre: {url:'./assets/monsters/aurelievre.gltf',height:1.7,hover:0,idle:['Idle','Flying_Idle'],move:['Walk','Fast_Flying','Run'],attack:['Bite_Front','Punch','Headbutt','Jump'],hit:['HitReact','HitRecieve'],death:['Death']},
   velune: {
     url: "./assets/monsters/velune.gltf",
     height: 1.55,
@@ -186,6 +194,8 @@ export function modelCreature(s, scale = 1) {
   group.add(fallback);
 
   const cfg = MODEL_CONFIG[s.id];
+  let disposed=false;
+  const disposeModel=root=>root.traverse(o=>{if(o.geometry && !o.geometry.userData.sharedAsset)o.geometry.dispose();for(const m of (Array.isArray(o.material)?o.material:[o.material])){if(!m||m.userData.sharedAsset)continue;for(const key of ["map","normalMap","roughnessMap","metalnessMap","emissiveMap"])m[key]?.dispose();m.dispose();}o.skeleton?.dispose();});
   const actor = {
     _loaded: false,
     _dead: false,
@@ -197,6 +207,7 @@ export function modelCreature(s, scale = 1) {
     _actions: {},
   };
 
+  group.userData.dispose=()=>{disposed=true;actor._mixer?.stopAllAction();if(actor._model)disposeModel(actor._model);group.clear();};
   group.userData.isModelCreature = true;
   group.userData.modelReady = false;
 
@@ -249,6 +260,7 @@ export function modelCreature(s, scale = 1) {
   loader.load(
     cfg.url,
     (gltf) => {
+      if(disposed){disposeModel(gltf.scene);return;}
       try {
         const model = gltf.scene;
         setMeshQuality(model, cfg.glow);

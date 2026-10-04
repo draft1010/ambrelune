@@ -1,5 +1,7 @@
-const CACHE = "ambrelune-v8.6-capture-transition-fix";
+const CACHE = "ambrelune-v11-creatures-water";
 const FILES = [
+ "./src/systems/encounters.js",
+ "./src/rendering/fountain.js",
   "./",
   "./index.html",
   "./style.css",
@@ -8,6 +10,10 @@ const FILES = [
   "./assets/icon-192.png",
   "./assets/icon-512.png",
   "./src/main.js",
+  "./src/systems/homestead.js",
+  "./src/rendering/interior.js",
+  "./src/rendering/occlusion.js",
+  "./src/rendering/fishing.js",
   "./src/rendering/art.js",
   "./src/rendering/character-assets.js",
   "./src/rendering/battle-stage.js",
@@ -16,6 +22,7 @@ const FILES = [
   "./src/rendering/icons.js",
   "./src/rendering/journal-ui.js",
   "./src/world/world.js",
+  "./src/world/terrain.js",
   "./src/systems/data.js",
   "./src/systems/state.js",
   "./src/systems/audio.js",

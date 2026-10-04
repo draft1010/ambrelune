@@ -1,4 +1,5 @@
-import { species, QUESTS } from "./data.js";
+import { CROPS, stationAvailable, footprint, spaceOf } from "./homestead.js";
+import { species, QUESTS, ITEMS } from "./data.js";
 export const SAVE_KEY = "ambrelune.save.v1";
 export function makeCreature(id, level = 3) {
   const c = species(id);
@@ -16,6 +17,8 @@ export function makeCreature(id, level = 3) {
 export function newState(starter = "velune", name = "Élo", color = "#657d95") {
   return {
     version: 1,
+    location: "world",
+    selectedSeed: "seed",
     name: name.slice(0, 24),
     color,
     player: { x: -9, z: 8 },
@@ -62,9 +65,11 @@ export function normalizeSave(raw) {
   return {
     ...base,
     ...raw,
-    inventory: { ...base.inventory, ...raw.inventory },
     stats: { ...base.stats, ...raw.stats },
-    settings: { ...base.settings, ...raw.settings },
+    location: typeof raw.location==='string' && /^(world|home|house--?\d+--?\d+)$/.test(raw.location) ? raw.location : 'world',
+    selectedSeed: CROPS[raw.selectedSeed] ? raw.selectedSeed : 'seed',
+    inventory: Object.fromEntries(Object.entries({...base.inventory,...raw.inventory}).filter(([id,n])=>Object.hasOwn(ITEMS,id)&&Number.isFinite(n)&&n>=0).map(([id,n])=>[id,Math.floor(n)])),
+    settings: { ...base.settings, ...raw.settings, quality:['low','medium','high','ultra'].includes(raw.settings?.quality)?raw.settings.quality:base.settings.quality },
     team: raw.team.map((c) => ({ ...makeCreature(c.id, c.level), ...c })),
     flags: { ...raw.flags },
     discovered: raw.discovered || ["city"],
@@ -99,7 +104,7 @@ export function add(s, id, n = 1) {
   s.inventory[id] = (s.inventory[id] || 0) + n;
 }
 export function craft(s, r) {
-  if (!spend(s, r.cost)) return false;
+  if (!r || !stationAvailable(s,r.station) || !spend(s, r.cost)) return false;
   add(s, r.id, r.count);
   if (r.id === "potion") s.flags.brewed = true;
   advanceQuest(s);
@@ -121,31 +126,34 @@ export function tickFarm(s, dt) {
     if (p.water > 0) {
       p.growth = (p.growth || 0) + dt * (p.fertilized ? 1.5 : 1);
       p.water = Math.max(0, p.water - dt / 180);
-      p.stage = Math.min(4, 1 + Math.floor(p.growth / 28));
+      p.stage = Math.min(4, 1 + Math.floor(p.growth / ((CROPS[p.seed || "seed"]?.seconds || 84) / 3)));
     }
   }
 }
 export function farmAction(s, p, tool) {
   if (tool === "hoe") {
     if (p.stage === 0) {
-      if (!spend(s, { seed: 1 }))
+      const seed = CROPS[s.selectedSeed] ? s.selectedSeed : "seed";
+      if (!spend(s, { [seed]: 1 }))
         return "Vous n’avez plus de graines. Le marché en vend.";
+      p.seed = seed;
       p.stage = 1;
       p.growth = 0;
       s.stats.planted++;
-      return "Roselle plantée. Un peu d’eau pour commencer !";
+      return `${CROPS[seed].name} planté(e). Un peu d’eau pour commencer !`;
     }
     if (p.stage === 4) {
-      const item = p.fertilized ? "quality" : "crop";
+      const crop = CROPS[p.seed || "seed"] || CROPS.seed;
+      const item = p.fertilized && crop.item === "crop" ? "quality" : crop.item;
       add(s, item, p.fertilized ? 2 : 1);
-      add(s, "crop", p.fertilized ? 1 : 0);
-      add(s, "seed", 1);
+      add(s, crop.item, p.fertilized && crop.item === "crop" ? 1 : 0);
+      add(s, p.seed || "seed", 1);
       s.stats.harvested++;
       p.stage = 0;
       p.growth = 0;
       p.water = 0;
       p.fertilized = false;
-      return "Roselle récoltée · +1 graine";
+      return `${crop.name} récolté(e) · +1 graine`;
     }
     return "La roselle pousse quand sa terre reste humide.";
   }
@@ -214,14 +222,13 @@ export function gainXp(c, amount) {
   }
   return levels;
 }
-export function canPlace(s, x, z, collides) {
-  return (
-    x > -44 &&
-    x < -15 &&
-    z > 19 &&
-    z < 43 &&
-    !collides(x, z, 0.65) &&
-    !s.buildings.some((b) => Math.hypot(b.x - x, b.z - z) < 1.5) &&
-    !s.plots.some((p) => Math.abs(p.x - x) < 1.4 && Math.abs(p.z - z) < 1.4)
-  );
+export function canPlace(s, x, z, collides, type='lamp', rotation=0, ignore=-1) {
+ const location=s.location||'world', y=s.player.y||0, [w,d]=footprint(type,rotation);
+ if(!Number.isFinite(x)||!Number.isFinite(z)) return false;
+ if(location==='world' ? !(x-w/2>-44 && x+w/2<-15 && z-d/2>19 && z+d/2<42) : !(Math.abs(x)+w/2<8.4 && Math.abs(z)+d/2<7.4)) return false;
+ // Keep the front door and the entire stair route clear, on both storeys.
+ if(location!=='world' && ((Math.abs(x)<2 && z+d/2>5) || (x+w/2>5 && z-d/2<4))) return false;
+ for(const dx of [-w/2,0,w/2]) for(const dz of [-d/2,0,d/2]) if(collides(x+dx,z+dz,.12)) return false;
+ if(s.buildings.some((b,i)=>{if(i===ignore || spaceOf(b)!==location || Math.abs((b.y||0)-y)>1) return false;const [bw,bd]=footprint(b.type,b.r);return Math.abs(b.x-x)<(w+bw)/2+.15 && Math.abs(b.z-z)<(d+bd)/2+.15;})) return false;
+ return location!=='world' || !s.plots.some(p=>Math.abs(p.x-x)<w/2+1.15 && Math.abs(p.z-z)<d/2+1.15);
 }

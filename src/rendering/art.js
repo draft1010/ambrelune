@@ -36,6 +36,7 @@ geometries.gable = new T.ExtrudeGeometry(gableShape, {
 
 geometries.gable.translate(0, 0, -0.5);
 
+for (const g of Object.values(geometries)) g.userData.sharedAsset = true;
 const materials = new Map();
 
 export const windUniform = {
@@ -754,6 +755,9 @@ if(
           "foliage-organic-v4";
     }
 
+    // Shared assets are released only by their cache owner.
+    m.userData.sharedAsset = true;
+    if (m.map) m.map.userData.sharedAsset = true;
     materials.set(key, m);
   }
 
@@ -1917,6 +1921,18 @@ export function furnishing(
   z,
   r = 0,
 ) {
+  f.onFurnishing?.(type,x,z,r);
+  if (['sleepingBed','chest','furnace','table','chair','shelf','rug','stove','wardrobe','composter'].includes(type)) {
+    const box=(color,dx,dy,dz,w,h,d,kind='wood',glow=0)=>f.part('box',color,x+dx*Math.cos(r)+dz*Math.sin(r),y+dy,z-dx*Math.sin(r)+dz*Math.cos(r),w,h,d,0,r,0,kind,glow);
+    if(type==='rug') box('#a96d67',0,.025,0,2.8,.05,2,'cloth');
+    else if(type==='sleepingBed') {box('#94734e',0,.32,0,1.8,.5,2.5);box('#ebe0c3',0,.66,0,1.7,.25,2.3,'cloth');box('#759986',0,.81,.25,1.72,.08,1.65,'cloth');box('#f4e7d2',0,.87,-.8,1.2,.18,.5,'cloth');box('#806244',0,.75,-1.2,1.85,1.1,.12);}
+    else if(['furnace','stove'].includes(type)){box('#8e8d7c',0,.65,0,1.6,1.3,1.2,'stone');box('#443d34',0,.5,.61,.9,.6,.04,'');box('#ed9b4b',0,.4,.64,.65,.16,.04,'',.5);box('#807967',.45,1.6,-.3,.5,1.1,.5,'stone');}
+    else if(type==='chest'||type==='wardrobe'){const h=type==='chest'?.9:2.3;box('#98724c',0,h/2,0,1.7,h,1);for(const dx of [-.65,.65])box('#686a5a',dx,h/2,.51,.08,h,.04,'');box('#d1b06b',0,h*.65,.54,.12,.14,.05,'');}
+    else if(type==='shelf'){for(const dx of [-.9,.9])box('#94734e',dx,1.1,0,.12,2.2,.65);for(const h of [.15,.85,1.55,2.2])box('#ad8b62',0,h,0,2,.12,.65);}
+    else if(type==='composter'){box('#705d40',0,.45,0,1.5,.9,1.5);box('#4b4532',0,.91,0,1.25,.04,1.25,'');}
+    else {const chair=type==='chair',w=chair?.8:2.4,d=chair?.8:1.5,h=chair?.6:1.1;box('#b29467',0,h,0,w,.14,d);for(const dx of [-w*.4,w*.4])for(const dz of [-d*.4,d*.4])box('#806445',dx,h/2,dz,.12,h,.12);if(chair)box('#a4885f',0,1,-.35,.8,.7,.12);}
+    return;
+  }
   if (type === "lamp") {
     return lamp(
       f,

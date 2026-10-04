@@ -1,3 +1,5 @@
+import {chooseEncounter,wildZone} from '../systems/encounters.js';
+import {flowingFountain} from '../rendering/fountain.js';
 import {
   T,
   Factory,
@@ -17,30 +19,8 @@ import {
   lamplightPools,
 } from "../rendering/village.js";
 import { species } from "../systems/data.js";
-export const riverX = (z) => 19 + Math.sin(z * 0.04) * 1.5;
-export function terrainHeight(x, z) {
-  let h = Math.max(
-    0.1,
-    0.35 +
-      Math.sin(x * 0.075) * 0.45 +
-      Math.cos(z * 0.085) * 0.32 +
-      Math.max(0, -z - 12) * 0.058 +
-      Math.exp(-((x - 43) ** 2 + (z + 34) ** 2) / 500) * 3.5,
-  );
-  const terrace = Math.max(0, Math.min(1, (8 - x) / 5));
-  h += terrace * Math.max(0, Math.min(1, (-z - 31) / 4)) * 2.6;
-  const dist = Math.abs(x - riverX(z));
-  if (dist < 4.7) return -0.85;
-  if (dist < 7) h *= Math.min(1, (dist - 4.7) / 2.3);
-  return h;
-}
-export const onBridge = (x, z) =>
-  x > 11 && x < 28 && (Math.abs(z - 8) < 2 || Math.abs(z + 30) < 2);
-export function height(x, z) {
-  return onBridge(x, z)
-    ? 0.7 + Math.sin(((x - 11) / 17) * Math.PI) * 0.55
-    : terrainHeight(x, z);
-}
+import {riverX,terrainHeight,onBridge,height,bridgeHeight,baseTerrainHeight,clearLandmark} from './terrain.js';
+export {riverX,terrainHeight,onBridge,height,bridgeHeight,clearLandmark} from './terrain.js';
 export function isRoad(x, z) {
   if (
     x < -2 &&
@@ -50,7 +30,8 @@ export function isRoad(x, z) {
     return true;
   if (Math.abs(x + 9) < 2.3 && z > -52 && z < 24) return true;
   if (Math.hypot(x + 9, z) < 7.5) return true;
-  if (z > 7 && z < 31 && Math.abs(x - (-9 - (z - 8) * 0.9)) < 1.45) return true;
+  if (z > 7 && z < 20 && Math.abs(x - (-9 - (z - 8) * 0.9)) < 1.45) return true;
+  if((x>-32.7 && x<-19 && Math.abs(z-20)<.85)||(z>19 && z<38 && Math.abs(x+31.8)<.75)||(x>-38 && x<-31 && Math.abs(z-29)<.8))return true;
   if (x > -9 && x < 52 && (Math.abs(z - 8) < 1.7 || Math.abs(z + 30) < 1.5))
     return true;
   if (x > 27 && x < 52 && Math.abs(x - (38 + Math.sin(z * 0.1) * 5)) < 1.7)
@@ -152,10 +133,19 @@ export class World {
     geom.setAttribute("color", new T.Float32BufferAttribute(colors, 3));
     geom.computeVertexNormals();
     const ground = new T.Mesh(geom, groundMaterial());
+    ground.material.userData.cutawayExcluded=true;
     ground.receiveShadow = true;
+    // Low-detail outer land continues beyond the playable rectangle into the fog.
+    const skirt=new T.PlaneGeometry(300,300,30,30);skirt.rotateX(-Math.PI/2);
+    const sp=skirt.attributes.position,sc=[];
+    for(let i=0;i<sp.count;i++){sp.setY(i,baseTerrainHeight(sp.getX(i),sp.getZ(i))-.04);sc.push(.35,.45,.25);}
+    const si=skirt.index.array,indices=[];
+    for(let i=0;i<si.length;i+=3){const ids=[si[i],si[i+1],si[i+2]];if(ids.some(j=>Math.abs(sp.getX(j))>=75||Math.abs(sp.getZ(j))>=75))indices.push(...ids);}
+    skirt.setIndex(indices);skirt.setAttribute('color',new T.Float32BufferAttribute(sc,3));skirt.computeVertexNormals();
+    const horizon=new T.Mesh(skirt,ground.material);horizon.receiveShadow=true;this.scene.add(horizon);
     this.scene.add(ground);
     /* Eau organique : limitée STRICTEMENT au lit de la rivière. */
-    const waterGeo = new T.PlaneGeometry(150, 150, 96, 96);
+    const waterGeo = new T.PlaneGeometry(300, 300, 96, 96);
     waterGeo.rotateX(-Math.PI / 2);
 
     this.water = new T.Mesh(
@@ -287,7 +277,7 @@ export class World {
     this.pickSurfaces = [ground];
     for (const bridgeZ of [8, -30]) {
       const deck = new T.Mesh(
-        new T.PlaneGeometry(17, 3.9),
+        new T.PlaneGeometry(17, 3.9, 34, 1),
         new T.MeshBasicMaterial({
           colorWrite: false,
           depthWrite: false,
@@ -295,8 +285,10 @@ export class World {
           opacity: 0,
         }),
       );
-      deck.rotation.x = -Math.PI / 2;
-      deck.position.set(19.5, 0.9, bridgeZ);
+      deck.geometry.rotateX(-Math.PI / 2);
+      const dp=deck.geometry.attributes.position;
+      for(let i=0;i<dp.count;i++)dp.setY(i,bridgeHeight(dp.getX(i)+19.5,bridgeZ));
+      deck.geometry.computeVertexNormals();deck.position.set(19.5, 0, bridgeZ);
       this.scene.add(deck);
       this.pickSurfaces.push(deck);
     }
@@ -313,6 +305,7 @@ export class World {
       f = new Factory(g, true);
     this.scene.add(g);
     this.landmarkGroup = g;
+    f.onFurnishing=(type,x,z,r)=>{if(type==='lamp')this.collider(x,z,.22);else this.collider(x,z,0,'rect',Math.abs(Math.cos(r))*1.9+Math.abs(Math.sin(r)),Math.abs(Math.sin(r))*1.9+Math.abs(Math.cos(r)));};
     villageDetails(f, this);
     // Formal crescent city: three neighbourhoods, generous streets and passages.
     let idx = 0;
@@ -320,6 +313,7 @@ export class World {
       for (const x of [-44, -32, -21, 2]) {
         if (z === 18 && x < -15) continue;
         if (z === -9 && x === -21) continue;
+        if((z===-48 && x===-32)||(z===-29 && x===2))continue;
         // Remove the two dark-roof houses that cut across the composition.
         if ((x === -32 && z === -9) || (x === 2 && z === 18)) continue;
         const w = 4.5 + r() * 1.5,
@@ -327,6 +321,7 @@ export class World {
           h = 3.4 + r() * 2.4;
         house(f, x, height(x, z), z, w, d, h, idx++);
         this.collider(x, z, 0.1, "rect", w + 0.5, d + 0.5);
+        this.interactables.push({type:"home",name:"Entrer dans la maison",location:`house-${x}-${z}`,x,z:z+d/2+1.1});
         if (z < 0) {
           lamp(f, x + w / 2 + 1, height(x + w / 2 + 1, z + 4), z + 4);
           furnishing(
@@ -354,13 +349,14 @@ export class World {
           );
       }
     // Arcaded civic hall and its observatory.
-    house(f, -8, height(-8, -27), -27, 10, 7, 6, 1);
-    this.collider(-8, -27, 0, "rect", 10, 7);
+    const hall={part:(type,color,x,y,z,...rest)=>f.part(type,color,x-1,y+height(-9,-55)-height(-8,-27),z-28,...rest)};
+    house(hall, -8, height(-8, -27), -27, 10, 7, 6, 1);
+    this.collider(-9, -55, 0, "rect", 10.6, 7.6);
     const ty = height(-9, -28);
-    f.part("cylinder", "#d5c6a1", -9, ty + 9, -28, 2, 9, 2, 0, 0, 0, "stone");
+    hall.part("cylinder", "#d5c6a1", -9, ty + 9, -28, 2, 9, 2, 0, 0, 0, "stone");
     for (let j = 0; j < 8; j++) {
       const a = (j * Math.PI) / 4;
-      f.part(
+      hall.part(
         "box",
         "#66817a",
         -9 + Math.sin(a) * 1.99,
@@ -373,11 +369,11 @@ export class World {
         a,
       );
     }
-    f.part("cone", "#527972", -9, ty + 15, -28, 3, 4, 3, 0, 0.3);
-    f.part("sphere", "#dab873", -9, ty + 17.1, -28, 0.22, 0.35, 0.22);
-    f.part("torus", "#e5c990", -9, ty + 12, -25.97, 0.7, 0.7, 0.7);
-    f.part("box", "#e5c990", -9, ty + 12.2, -25.94, 0.06, 0.42, 0.07);
-    f.part("box", "#e5c990", -8.8, ty + 12, -25.94, 0.46, 0.06, 0.07);
+    hall.part("cone", "#527972", -9, ty + 15, -28, 3, 4, 3, 0, 0.3);
+    hall.part("sphere", "#dab873", -9, ty + 17.1, -28, 0.22, 0.35, 0.22);
+    hall.part("torus", "#e5c990", -9, ty + 12, -25.97, 0.7, 0.7, 0.7);
+    hall.part("box", "#e5c990", -9, ty + 12.2, -25.94, 0.06, 0.42, 0.07);
+    hall.part("box", "#e5c990", -8.8, ty + 12, -25.94, 0.46, 0.06, 0.07);
     // Fountain: scalloped basin, carved central spindle, four water spouts.
     const fy = height(-9, 0);
     f.part("cylinder", "#b9b498", -9, fy + 0.16, 0, 3, 0.32, 3);
@@ -388,6 +384,7 @@ export class World {
     f.part("sphere", "#6d9a7b", -9, fy + 2.4, 0, 0.4, 0.68, 0.4);
     f.part("torus", "#d9bb71", -9, fy + 2.7, 0, 0.73, 0.73, 0.73, 0, 0.6);
     this.collider(-9, 0, 2.7);
+    this.fountain=flowingFountain(this.scene,-9,fy,0);
     for (let i = 0; i < 4; i++) {
       const a = (i * Math.PI) / 2,
         x = -9 + Math.sin(a) * 5.5,
@@ -398,7 +395,7 @@ export class World {
     // Market canopies and individual produce baskets.
     for (let i = 0; i < 5; i++) {
       const x = -41 + i * 5.2,
-        z = -17.1,
+        z = -14.8,
         y = height(x, z);
       for (const dx of [-1.5, 1.5])
         for (const dz of [-0.8, 0.8])
@@ -468,7 +465,7 @@ export class World {
     });
     this.interactables.push({
       type: "home",
-      name: "Votre maison · repos et soins",
+      name: "Votre maison · entrer",
       x: -36,
       z: 28.3,
     });
@@ -479,7 +476,7 @@ export class World {
     // Bridges: rising plank decks, arches, posts and double handrails.
     for (const z of [8, -30]) {
       for (let j = 0; j < 34; j++) {
-        const x = 11 + j * 0.5,
+        const x = 11 + (j + .5) * 0.5,
           y = height(x, z);
         f.part(
           "box",
@@ -487,7 +484,7 @@ export class World {
           x,
           y - 0.1,
           z,
-          0.48,
+          0.51,
           0.2,
           3.9,
           0,
@@ -527,11 +524,9 @@ export class World {
     }
     // Conservatory, tiered garden and ancient sanctuary.
     house(f, -35, height(-35, -49), -49, 7, 7, 4.8, 1);
-    for (let i = 0; i < 7; i++) {
-      const x = -39 + i * 1.2;
-      f.part("box", "#9eb5a0", x, height(-35, -49) + 5.5, -49, 0.06, 1.6, 6.7);
-    }
-    const sy = height(43, -39);
+    this.collider(-35,-49,0,"rect",7.5,7.5);
+
+    const sy = terrainHeight(43, -39);
     f.part("cylinder", "#b1b29b", 43, sy + 0.18, -39, 5.5, 0.36, 5.5);
     for (let i = 0; i < 8; i++) {
       const a = (i * Math.PI) / 4,
@@ -578,7 +573,7 @@ export class World {
     for (let z = -66; z < 62; z += 1.5) {
       for (const s of [-1, 1]) {
         const x = riverX(z) + s * (5.2 + r() * 0.45);
-        if (onBridge(x, z)) continue;
+        if (Math.abs(z-8)<3 || Math.abs(z+30)<3) continue;
         const y = terrainHeight(x, z);
         const bankRockSize = 0.5 + r() * 0.4;
         f.part(
@@ -703,18 +698,18 @@ export class World {
 
     for (const [x, z, s] of [
       // Only peripheral planters remain; the central ones shown in the screenshots are gone.
-      [-37, 1, 0.75],
+      [-44, 1, 0.75],
       [-42, 13, 0.72],
       [-3, -37, 0.8],
-      [-18, -39, 0.75],
-      [-30, -39, 0.7],
-      [-35, 17, 0.65],
+      [-18, -35.8, 0.75],
+      [-30, -35.8, 0.7],
+      [-42, 17, 0.65],
     ]) {
       const y = height(x, z);
       f.part("cylinder", "#b5ad8f", x, y + 0.17, z, 1.65, 0.32, 1.65, 0, 0, 0, "stone");
       f.part("cylinder", "#667454", x, y + 0.36, z, 1.45, 0.08, 1.45, 0, 0, 0, "leaf");
       tree(f, x, y + 0.4, z, s, x === -20 || x === -17 || x === -30 ? 4 : 1);
-      this.collider(x, z, 0.35);
+      this.collider(x, z, 1.65);
       for (let j = 0; j < 18; j++) {
         const a = j * 2.4;
         flower(
@@ -795,6 +790,15 @@ export class World {
       );
     }
     this.lightPools = lamplightPools(this.scene, f);
+    // Narrow wooded edges sit entirely OUTSIDE the playable rectangle.
+    for(let side=0;side<4;side++)for(let i=0;i<18;i++){
+      const t=i/17,offset=Math.sin(i*2.3)*.7;
+      const x=side<2?(side===0?-71:71)+offset:-71+t*142;
+      const z=side<2?-70+t*136:(side===2?-70:66)+offset;
+      if(Math.abs(x-riverX(z))<6)continue;
+      f.part('sphere','#8a917d',x,height(x,z)+.6,z,1.4+(i%3)*.3,1.1+(i%2)*.5,1.6,0,i*.5,0,'stone');
+      if(i%2===0)tree(f,x,height(x,z),z,.65+(i%3)*.08,i%3);
+    }
     f.flush();
     this.populate();
     this.createParticles();
@@ -808,7 +812,7 @@ export class World {
         Math.abs(x) > 66 ||
         Math.abs(z) > 64 ||
         Math.abs(x - riverX(z)) < 7 ||
-        isRoad(x, z)
+        isRoad(x, z) || clearLandmark(x,z)
       )
         continue;
       const city = x < 7 && x > -50 && z < 21 && z > -56,
@@ -825,7 +829,7 @@ export class World {
     for (let i = 0; i < 240; i++) {
       const x = cx * 30 + (r() - 0.5) * 30,
         z = cz * 30 + (r() - 0.5) * 30;
-      if (Math.abs(x) > 69 || Math.abs(z) > 67 || Math.abs(x - riverX(z)) < 6)
+      if (Math.abs(x) > 69 || Math.abs(z) > 67 || Math.abs(x - riverX(z)) < 6 || clearLandmark(x,z))
         continue;
       const y = height(x, z);
       if (isRoad(x, z)) {
@@ -848,7 +852,7 @@ export class World {
       }
       const farm = x > -44 && x < -15 && z > 20 && z < 42;
       const plotField = x > -31.2 && x < -20.0 && z > 26.0 && z < 35.3;
-      if (plotField) continue;
+      if (plotField || (x>-49 && x<7 && z>-55 && z<20)) continue;
       for (let j = 0; j < 3; j++)
         f.part(
           "cone",
@@ -947,36 +951,6 @@ export class World {
         ][i],
       });
     });
-    const wildData = [
-      ["velune", 34, 12],
-      ["ondril", 29, 20],
-      ["moussier", 44, 24],
-      ["vrille", -26, -59],
-      ["brasile", 39, 43],
-      ["velune", 51, 1],
-      ["moussier", 37, -11],
-      ["ondril", 29, -19],
-      ["lumignon", 49, -30],
-      ["coralys", 29, 34],
-      ["gardien", 43, -38],
-    ];
-    wildData.forEach(([id, x, z], i) => {
-      const mesh = modelCreature(species(id), 1);
-      mesh.position.set(x, height(x, z), z);
-      this.scene.add(mesh);
-      this.wild.push({
-        id,
-        x,
-        z,
-        homeX: x,
-        homeZ: z,
-        mesh,
-        phase: i * 1.3,
-        cooldown: 0,
-        index: i,
-        level: id === "gardien" ? 7 : 2 + (i % 4),
-      });
-    });
     for (let i = 0; i < 60; i++) {
       const r = this.rand;
       let x, z;
@@ -994,6 +968,7 @@ export class World {
       )
         continue;
       const type =
+          i>=10 && i%7===0 ? "ore" : i>=10 && i%11===0 ? "coal" :
           i % 3 === 0
             ? "wood"
             : i % 3 === 1
@@ -1034,8 +1009,8 @@ export class World {
         );
         for (let j = 0; j < 3; j++)
           f.part("box", "#705c41", 0, 0.45 + j * 0.07, 0.3, 1.2, 0.04, 0.04, 0, 0, 0, "bark");
-      } else if (type === "stone") {
-        f.part("sphere", "#a9ab98", 0, 0.5, 0, 0.8, 0.6, 0.66, 0, i, 0, "stone");
+      } else if (["stone","ore","coal"].includes(type)) {
+        f.part("sphere", type==="ore"?"#a57351":type==="coal"?"#434744":"#a9ab98", 0, 0.5, 0, 0.8, 0.6, 0.66, 0, i, 0, "stone");
         f.part("sphere", "#babbab", 0.44, 0.2, 0.3, 0.35, 0.32, 0.3, 0, 0, 0, "stone");
       } else if (type === "crystal") {
         for (let j = 0; j < 4; j++)
@@ -1076,7 +1051,7 @@ export class World {
       g.position.set(x, height(x, z), z);
       this.scene.add(g);
       const resourceRadius =
-        type === "wood" ? 0.72 : type === "stone" ? 0.7 : type === "crystal" ? 0.5 : 0.38;
+        type === "wood" ? 0.72 : ["stone","ore","coal"].includes(type) ? 0.7 : type === "crystal" ? 0.5 : 0.38;
       const resourceCollider = this.collider(x, z, resourceRadius);
       this.resources.push({
         id: `res${i}`,
@@ -1116,6 +1091,26 @@ export class World {
       z: 11,
       mesh: g,
       collider: firstCrystalCollider,
+    });
+    const wildData = [];
+    for(let i=0;i<18;i++){const e=chooseEncounter(Math.random,this.collides.bind(this),wildData.map(([id,x,z])=>({homeX:x,homeZ:z})));if(e)wildData.push([e.id,e.x,e.z]);}
+    wildData.push(['gardien',43,-38]);
+    wildData.forEach(([id, x, z], i) => {
+      const mesh = modelCreature(species(id), 1);
+      mesh.position.set(x, height(x, z), z);
+      this.scene.add(mesh);
+      this.wild.push({
+        id,
+        x,
+        z,
+        homeX: x,
+        homeZ: z,
+        mesh,
+        phase: i * 1.3,
+        cooldown: 0,
+        index: i,
+        level: id === "gardien" ? 7 : 2 + (i % 4),
+      });
     });
   }
   createParticles() {
@@ -1193,6 +1188,7 @@ export class World {
   }
   update(dt, t, state, px, pz) {
     this.water.material.uniforms.time.value = t;
+    this.fountain?.update(t);
     this.rain.visible = state.weather === "pluie";
     if (this.rain.visible) {
       this.rain.position.set(px, 0, pz);
@@ -1216,20 +1212,25 @@ export class World {
       const motion = stepNpc(n, dt, { x: px, z: pz }, this.collides.bind(this));
       n.mesh.position.set(n.x, height(n.x, n.z), n.z);
       if (motion.facing !== undefined) n.mesh.rotation.y = motion.facing;
-      n.mesh.userData.animate(
-        t,
-        motion.moving,
-        false,
-        dt,
-      );
+      n.animationElapsed=(n.animationElapsed||0)+dt;
+      if(npcDistance<28 || n.animationElapsed>=1/15){
+        n.mesh.userData.animate(t,motion.moving,false,n.animationElapsed);
+        n.animationElapsed=0;
+      }
     }
     for (const w of this.wild) {
+      const wasCooling=w.cooldown>0;
       w.cooldown = Math.max(0, w.cooldown - dt);
+      if(w.id!=='gardien' && ((wasCooling && w.cooldown===0)||w.respawnPending|| (w.spawnDay!==undefined&&w.spawnDay!==state.day))){
+       if(Math.hypot(px-w.x,pz-w.z)>20){const e=chooseEncounter(Math.random,(x,z,r)=>this.collides(x,z,r)||Math.hypot(px-x,pz-z)<20,this.wild.filter(v=>v!==w));if(e){w.mesh.removeFromParent();w.mesh.userData.dispose?.();Object.assign(w,e);w.mesh=modelCreature(species(e.id),1);this.scene.add(w.mesh);w.mesh.position.set(w.x,height(w.x,w.z),w.z);w.spawnDay=state.day;w.respawnPending=false;}}
+       else if(wasCooling)w.respawnPending=true;
+      }
+      w.spawnDay??=state.day;
       const nocturnal = w.id === "lumignon",
         rainOnly = w.id === "coralys";
       const wildDistance = Math.hypot(px - w.homeX, pz - w.homeZ);
       w.mesh.visible =
-        w.cooldown === 0 &&
+        w.cooldown === 0 && !w.respawnPending &&
         (!this.lowQuality || wildDistance < 42) &&
         (!nocturnal || state.time >= 17 || state.time < 6) &&
         (!rainOnly || state.weather === "pluie") &&
@@ -1244,6 +1245,7 @@ export class World {
         (move ? Math.sin(t * 0.28 + w.phase) * 1.5 : 0) +
         (dist > 0 ? ((w.homeX - px) / dist) * flee : 0);
       w.z = w.homeZ + (move ? Math.cos(t * 0.22 + w.phase) : 0);
+      if(w.id!=='gardien' && (!wildZone(w.x,w.z)||this.collides(w.x,w.z,.65))){w.x=w.homeX;w.z=w.homeZ;}
       w.mesh.position.set(w.x, height(w.x, w.z), w.z);
       w.mesh.rotation.y =
         dist < 5
@@ -1294,13 +1296,19 @@ export class World {
       c.g.visible = Math.hypot(c.x - px, c.z - pz) < radius;
   }
   sync(state) {
+    const buildKey=JSON.stringify(state.buildings.map(({type,x,z,r,y})=>({type,x,z,r,y})));
+    if(buildKey!==this.buildKey){
+      this.buildKey=buildKey;
+      for(const g of this.buildMeshes){g.traverse(o=>{if(o.isInstancedMesh)o.dispose();});g.removeFromParent();}
+      this.buildMeshes=[];this.buildLampLights=[];
+    }
     for (const r of this.resources) {
       const visible = !(state.depleted[r.id] > state.day);
       r.mesh.visible = visible;
       if (r.collider) r.collider.disabled = !visible;
     }
     for (const p of state.plots) {
-      const key = `${p.stage}-${p.water > 0.1}-${p.fertilized}`;
+      const key = `${p.seed}-${p.stage}-${p.water > 0.1}-${p.fertilized}`;
       const old = this.plotMeshes.get(p.id);
       if (old?.key === key) continue;
 
@@ -1399,7 +1407,23 @@ export class World {
       }
 
       /* Culture : davantage de plants, volumes plus naturels. */
-      if (p.stage > 0) {
+      if(p.stage>0 && p.seed && p.seed!=='seed') {
+        for(let i=0;i<6;i++){
+          const x=-.5+(i%3)*.5,z=-.4+Math.floor(i/3)*.8,h=.15+p.stage*.17;
+          f.part('cone','#789157',x,.14+h/2,z,.04,h,.04,0,i*.5,.08,'leaf');
+          if(p.seed==='wheatSeed'){
+            for(let j=0;j<3;j++)f.part('sphere',p.stage===4?'#dfc179':'#99a665',x+(j%2?-.045:.045),.12+h-j*.09,z,.055,.09,.04);
+          }else if(p.seed==='carrotSeed'){
+            f.part('cone','#88a35f',x,.2+h*.3,z,.15,h*.6,.12,Math.PI,0,.3,'leaf');
+            if(p.stage>2)f.part('sphere','#d78e53',x,.17,z,.10,.08,.10);
+          }else if(p.seed==='pumpkinSeed'){
+            f.part('sphere','#88a35f',x,.2,z,.2,.035,.23,0,i,0,'leaf');
+            if(p.stage>2)f.part('sphere','#d5a05d',x,.15+p.stage*.04,z,p.stage*.065,p.stage*.06,p.stage*.065);
+          }else{
+            for(let j=0;j<3;j++){const a=j*Math.PI*2/3;f.part('sphere',p.stage>2?'#a7a4cf':'#99a665',x+Math.sin(a)*.07,.14+h,z+Math.cos(a)*.07,.075,.025,.075);}
+          }
+        }
+      }else if (p.stage > 0) {
         for (let row = 0; row < 3; row++) {
           for (let col = 0; col < 2; col++) {
             const x = -0.38 + row * 0.38 + (pr() - 0.5) * 0.045;
@@ -1501,11 +1525,12 @@ export class World {
         const pointLight = new T.PointLight("#ffd58f", 0, 8.5, 2);
         pointLight.position.set(0, 2.83, 0);
         pointLight.castShadow = false;
-        g.add(pointLight);
+        // Warm pooled ground glow is enough; avoid accumulating point lights.
         this.buildLampLights.push({ group: g, light: pointLight });
       }
 
       this.scene.add(g);
+      g.userData.building=b;
       this.buildMeshes.push(g);
     }
   }

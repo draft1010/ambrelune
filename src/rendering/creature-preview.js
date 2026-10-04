@@ -4,6 +4,8 @@ import { species } from "../systems/data.js";
 
 const previews = [];
 let raf = 0;
+let sharedRenderer;
+let lastFrame = 0;
 
 const PRESET = {
   starter: { w: 150, h: 118, scale: 0.88, camZ: 4.4, camY: 1.16 },
@@ -23,37 +25,31 @@ export function clearCreaturePortraits() {
   }
   while (previews.length) {
     const preview = previews.pop();
-    try {
-      preview.renderer.dispose();
-      preview.creature?.traverse?.((o) => {
-        if (o.geometry?.dispose) o.geometry.dispose();
-        if (o.material) {
-          const materials = Array.isArray(o.material) ? o.material : [o.material];
-          materials.forEach((m) => {
-            if (!m) return;
-            if (m.map?.dispose) m.map.dispose();
-          });
-        }
-      });
-      preview.node.innerHTML = "";
-    } catch {
-      // noop
+    // Creature meshes and textures belong to the shared asset cache.
+    // Only the pedestal and shadow are owned by this preview.
+    for (const owned of [preview.pedestal, preview.shadow]) {
+      owned.geometry.dispose(); owned.material.dispose();
     }
+    preview.creature.userData.dispose?.();
+    preview.node.replaceChildren();
   }
 }
 
 function makePreview(node) {
   const id = node.dataset.creature3d;
   const cfg = PRESET[node.dataset.previewKind] || PRESET.card;
-  const renderer = new T.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "low-power" });
+  const renderer = sharedRenderer ||= new T.WebGLRenderer({ antialias: false, alpha: true, powerPreference: "low-power" });
   renderer.outputColorSpace = T.SRGBColorSpace;
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
   renderer.setSize(cfg.w, cfg.h, false);
-  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.enabled = false;
   renderer.shadowMap.type = T.PCFSoftShadowMap;
   renderer.domElement.className = "creature-portrait3d-canvas";
   node.innerHTML = "";
-  node.appendChild(renderer.domElement);
+  const target = document.createElement('canvas');
+  target.width = renderer.domElement.width; target.height = renderer.domElement.height;
+  target.style.width = cfg.w + 'px'; target.style.height = cfg.h + 'px';
+  node.appendChild(target);
 
   const scene = new T.Scene();
 
@@ -98,17 +94,25 @@ function makePreview(node) {
   creature.position.set(0, 0, 0);
   scene.add(creature);
 
-  previews.push({ node, renderer, scene, camera, creature, shadow, seed: previews.length * 0.91 + 0.5 });
+  previews.push({ node, target, cfg, renderer, scene, camera, creature, pedestal, shadow, seed: previews.length * 0.91 + 0.5 });
 }
 
 function loop(now) {
+  if (now - lastFrame < 100) { raf = requestAnimationFrame(loop); return; }
+  lastFrame = now;
   const t = now * 0.001;
   for (const p of previews) {
     if (!p.node.isConnected) continue;
     p.creature.rotation.y = Math.sin(t * 0.8 + p.seed) * 0.22 + 0.4;
     p.creature.userData.animate?.(t, false);
     p.shadow.scale.setScalar(1 + Math.sin(t * 1.7 + p.seed) * 0.03);
+    const rect = p.node.getBoundingClientRect();
+    if (rect.bottom < 0 || rect.top > innerHeight) continue;
+    p.renderer.setSize(p.cfg.w, p.cfg.h, false);
     p.renderer.render(p.scene, p.camera);
+    const ctx = p.target.getContext('2d');
+    ctx.clearRect(0, 0, p.target.width, p.target.height);
+    ctx.drawImage(p.renderer.domElement, 0, 0, p.target.width, p.target.height);
   }
   if (previews.length) raf = requestAnimationFrame(loop);
   else raf = 0;
