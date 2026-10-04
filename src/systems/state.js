@@ -46,7 +46,7 @@ export function newState(starter = "velune", name = "Élo", color = "#657d95") {
     friendship: {},
     discovered: ["city"],
     quest: 0,
-    settings: { quality: "high", pixel: false, sound: true, touch: false },
+    settings: { quality: "low", pixel: false, sound: true, touch: false },
     playtime: 0,
   };
 }

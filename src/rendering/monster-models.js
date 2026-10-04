@@ -101,6 +101,27 @@ aurelievre: {url:'./assets/monsters/aurelievre.gltf',height:1.7,hover:0,idle:['I
   },
 };
 
+/**
+ * Préchauffe tous les fichiers de créatures avant l'affichage du menu.
+ * Le cache Three.js conserve les réponses, ce qui évite les téléchargements
+ * tardifs et les apparitions en fallback pendant la partie.
+ */
+export async function preloadMonsterModels(onProgress = () => {}) {
+  const entries = [...new Map(Object.values(MODEL_CONFIG).map((cfg) => [cfg.url, cfg])).values()];
+  let done = 0;
+  const results = await Promise.allSettled(
+    entries.map(async (cfg) => {
+      try {
+        return await loader.loadAsync(cfg.url);
+      } finally {
+        done += 1;
+        onProgress(done, entries.length, cfg.url.split("/").pop());
+      }
+    }),
+  );
+  return { total: entries.length, failed: results.filter((r) => r.status === "rejected").length };
+}
+
 function firstClip(clips, names) {
   for (const wanted of names || []) {
     const exact = clips.find((clip) => clip.name === wanted);

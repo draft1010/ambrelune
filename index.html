@@ -13,7 +13,7 @@
     />
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./assets/icon.svg" />
-    <link rel="stylesheet" href="./style.css?v=19" />
+    <link rel="stylesheet" href="./style.css?v=20" />
     <title>Les Jardins d’Ambrelune</title>
     <script type="importmap">
       {
@@ -33,7 +33,11 @@
     <div id="loading">
       <span class="sigil">❧</span>
       <h1>Ambrelune</h1>
-      <p>Les jardins s’éveillent…</p>
+      <p id="loadingText">Préparation des jardins…</p>
+      <div class="loading-progress" role="progressbar" aria-label="Chargement d’Ambrelune" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+        <i id="loadingBar"></i>
+      </div>
+      <small id="loadingPercent">0 %</small>
     </div>
     <main id="hud" hidden>
       <header>
@@ -148,6 +152,6 @@
       window.addEventListener('error', event => showStartupError(event.message || 'Un fichier du jeu n’a pas été chargé.'));
       window.addEventListener('unhandledrejection', event => showStartupError(event.reason?.message || String(event.reason)));
     </script>
-    <script type="module" src="./src/main.js?v=19" onerror="showStartupError('Impossible de charger le jeu. Vérifiez votre connexion puis actualisez la page.')"></script>
+    <script type="module" src="./src/main.js?v=20" onerror="showStartupError('Impossible de charger le jeu. Vérifiez votre connexion puis actualisez la page.')"></script>
   </body>
 </html>

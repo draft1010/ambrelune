@@ -281,6 +281,31 @@ function pathsFor(v) {
   ];
 }
 
+/**
+ * Charge en mémoire tous les modèles/animations de personnages utilisés par le jeu.
+ * Les données parsées restent dans les caches du module : les PNJ et le joueur
+ * peuvent ensuite être instanciés sans nouvel accès réseau.
+ */
+export async function preloadCharacterAssets(onProgress = () => {}) {
+  const urls = [...new Set(Object.values(VARIANTS).flatMap(pathsFor))];
+  const tasks = [
+    { label: "Animations des personnages", promise: getAnimations() },
+    ...urls.map((url) => ({ label: url.split("/").pop(), promise: prepareGltf(url) })),
+  ];
+  let done = 0;
+  const results = await Promise.allSettled(
+    tasks.map(async ({ label, promise }) => {
+      try {
+        return await promise;
+      } finally {
+        done += 1;
+        onProgress(done, tasks.length, label);
+      }
+    }),
+  );
+  return { total: tasks.length, failed: results.filter((r) => r.status === "rejected").length };
+}
+
 export function character(kind = "player", fallbackColor = "#698895") {
   const v = VARIANTS[kind] || VARIANTS.player;
   const group = new T.Group();

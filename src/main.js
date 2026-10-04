@@ -10,8 +10,8 @@ import {
   gardenView,
 } from "./rendering/journal-ui.js";
 import { BattleStage } from "./rendering/battle-stage.js";
-import { character, characterActionForTool } from "./rendering/character-assets.js?v=19";
-import { modelCreature } from "./rendering/monster-models.js";
+import { character, characterActionForTool, preloadCharacterAssets } from "./rendering/character-assets.js?v=20";
+import { modelCreature, preloadMonsterModels } from "./rendering/monster-models.js?v=20";
 import {
   creaturePortrait3D,
   mountCreaturePortraits,
@@ -60,7 +60,7 @@ import {
   gainXp,
   canPlace,
 } from "./systems/state.js";
-import { Input } from "./systems/input.js?v=19";
+import { Input } from "./systems/input.js?v=20";
 import { AudioGarden } from "./systems/audio.js";
 const $ = (id) => document.getElementById(id),
   esc = (s) =>
@@ -374,7 +374,6 @@ function introChoice() {
           "#657d95",
         );
         if (matchMedia("(pointer:coarse)").matches) {
-          s.settings.quality = "medium";
           s.settings.touch = true;
         }
         closeModal();
@@ -1892,10 +1891,91 @@ window.ambreluneDiagnostics = () => ({
 });
 camera.position.set(26, 47, 39);
 camera.lookAt(-12, 2, -6);
-$("loading").hidden = true;
-$("intro").hidden = false;
-$("continueBtn").hidden = !load();
+
+function setLoadingProgress(value, text = "") {
+  const percent = Math.max(0, Math.min(100, Math.round(value)));
+  const bar = $("loadingBar");
+  const label = $("loadingPercent");
+  const progress = document.querySelector(".loading-progress");
+  if (bar) bar.style.width = `${percent}%`;
+  if (label) label.textContent = `${percent} %`;
+  if (progress) progress.setAttribute("aria-valuenow", String(percent));
+  if (text && $("loadingText")) $("loadingText").textContent = text;
+}
+
+function waitForWorldModels(timeoutMs = 12000) {
+  const actors = [
+    ...world.npcs.map((n) => ({ mesh: n.mesh, key: "ready" })),
+    ...world.wild.map((w) => ({ mesh: w.mesh, key: "modelReady" })),
+  ];
+  if (!actors.length) return Promise.resolve({ ready: 0, total: 0 });
+  const startedAt = performance.now();
+  return new Promise((resolve) => {
+    const poll = () => {
+      const ready = actors.filter(({ mesh, key }) => !!mesh?.userData?.[key]).length;
+      setLoadingProgress(82 + (ready / actors.length) * 16, `Installation des habitants… ${ready}/${actors.length}`);
+      if (ready >= actors.length || performance.now() - startedAt >= timeoutMs) {
+        resolve({ ready, total: actors.length });
+        return;
+      }
+      setTimeout(poll, 80);
+    };
+    poll();
+  });
+}
+
+async function startup() {
+  // Le décor du menu démarre toujours en mode léger. Une sauvegarde existante
+  // retrouve sa qualité choisie uniquement au moment de « Reprendre ».
+  state.settings.quality = "low";
+  applySettings();
+  setLoadingProgress(3, "Préparation des jardins…");
+
+  let characterDone = 0;
+  let characterTotal = 1;
+  let monsterDone = 0;
+  let monsterTotal = 1;
+  const refreshAssetProgress = (label = "") => {
+    const done = characterDone + monsterDone;
+    const total = characterTotal + monsterTotal;
+    setLoadingProgress(8 + (done / Math.max(1, total)) * 72, label ? `Chargement des modèles · ${label}` : "Chargement des modèles…");
+  };
+
+  const preload = Promise.all([
+    preloadCharacterAssets((done, total, label) => {
+      characterDone = done; characterTotal = total; refreshAssetProgress(label);
+    }),
+    preloadMonsterModels((done, total, label) => {
+      monsterDone = done; monsterTotal = total; refreshAssetProgress(label);
+    }),
+  ]);
+
+  // Un fichier corrompu ou une connexion lente ne doit jamais emprisonner le joueur
+  // sur l'écran de chargement : les fallbacks procéduraux restent disponibles.
+  await Promise.race([
+    preload,
+    new Promise((resolve) => setTimeout(resolve, 20000)),
+  ]);
+
+  await waitForWorldModels();
+  setLoadingProgress(99, "Derniers préparatifs…");
+  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  setLoadingProgress(100, "Ambrelune est prête.");
+  await new Promise((resolve) => setTimeout(resolve, 180));
+
+  $("loading").hidden = true;
+  $("intro").hidden = false;
+  $("continueBtn").hidden = !load();
+}
+
 loop();
+startup().catch((error) => {
+  console.warn("[Ambrelune] Préchargement incomplet, démarrage avec fallbacks.", error);
+  setLoadingProgress(100, "Ambrelune est prête.");
+  $("loading").hidden = true;
+  $("intro").hidden = false;
+  $("continueBtn").hidden = !load();
+});
 if ("serviceWorker" in navigator)
   navigator.serviceWorker
     .register("./sw.js")
