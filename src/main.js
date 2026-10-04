@@ -1,7 +1,7 @@
 import { prepareOccluders, updateCutawayScreen } from './rendering/occlusion.js';
 import { FishingSession } from './rendering/fishing.js';
 import { Interior, indoorHeight, indoorCollision, indoorPlacementCollision } from './rendering/interior.js';
-import { CROPS, BUILDABLES, FOOD, spaceOf, furnitureBlocks, stationAvailable, transfer, recover } from './systems/homestead.js';
+import { CROPS, BUILDABLES, FOOD, spaceOf, footprint, furnitureBlocks, stationAvailable, transfer, recover } from './systems/homestead.js';
 import {
   gauge,
   teamView,
@@ -10,8 +10,8 @@ import {
   gardenView,
 } from "./rendering/journal-ui.js";
 import { BattleStage } from "./rendering/battle-stage.js";
-import { character, characterActionForTool, preloadCharacterAssets } from "./rendering/character-assets.js?v=21";
-import { modelCreature, preloadMonsterModels } from "./rendering/monster-models.js?v=21";
+import { character, characterActionForTool, preloadCharacterAssets } from "./rendering/character-assets.js?v=22";
+import { modelCreature, preloadMonsterModels } from "./rendering/monster-models.js?v=22";
 import {
   creaturePortrait3D,
   mountCreaturePortraits,
@@ -60,7 +60,7 @@ import {
   gainXp,
   canPlace,
 } from "./systems/state.js";
-import { Input } from "./systems/input.js?v=21";
+import { Input } from "./systems/input.js?v=22";
 import { AudioGarden } from "./systems/audio.js";
 const $ = (id) => document.getElementById(id),
   esc = (s) =>
@@ -147,6 +147,27 @@ const surfaceHeight = (x,z) => interior ? indoorHeight(x,z,state.player.y||0) : 
 const solidAt = (x,z,r=.4) => interior ? indoorCollision(x,z,r,state.player.y||0) : world.collides(x,z,r);
 const placementSolidAt = (x,z,r=.12) => interior ? indoorPlacementCollision(x,z,r,state.player.y||0) : world.collides(x,z,r);
 const snapPlacement = (value,type) => { const step=(interior||type==='fence')?.1:1; return Math.round(value/step)*step; };
+const fenceEnds=(x,z,r)=>{const hx=Math.cos(r)*.95,hz=-Math.sin(r)*.95;return [{x:x+hx,z:z+hz},{x:x-hx,z:z-hz}];};
+function refinePlacement(x,z,type,r=0,movingIndex=-1){
+ x=snapPlacement(x,type); z=snapPlacement(z,type);
+ if(interior){
+  const [w,d]=footprint(type,r), maxX=8.875-w/2, maxZ=7.875-d/2, magnet=.16;
+  // When an object is dragged close to an outer wall, magnetise its visible edge exactly onto the plaster face.
+  if(Math.abs(Math.abs(x)-maxX)<=magnet || Math.abs(x)>maxX) x=(x<0?-1:1)*maxX;
+  if(Math.abs(Math.abs(z)-maxZ)<=magnet || Math.abs(z)>maxZ) z=(z<0?-1:1)*maxZ;
+  return {x,z};
+ }
+ if(type==='fence'){
+  const own=fenceEnds(x,z,r); let best=null;
+  state.buildings.forEach((b,i)=>{
+   if(i===movingIndex || b.type!=='fence' || spaceOf(b)!=='world') return;
+   const target=fenceEnds(b.x,b.z,b.r||0);
+   own.forEach(a=>target.forEach(c=>{const dx=c.x-a.x,dz=c.z-a.z,dist=Math.hypot(dx,dz);if(dist<=.32 && (!best || dist<best.dist))best={x:x+dx,z:z+dz,dist};}));
+  });
+  if(best){x=best.x;z=best.z;}
+ }
+ return {x,z};
+}
 function syncWorld() { world.sync({...state,buildings:state.buildings.filter(b=>spaceOf(b)==='world')}); interior?.sync(state); }
 function sceneTransition(){const veil=document.createElement('div');veil.className='scene-transition';document.body.append(veil);veil.addEventListener('animationend',()=>veil.remove(),{once:true});}
 function enterHome(location='home') {
@@ -192,7 +213,10 @@ const input = new Input(canvas, {
   menu: () => openMenu(),
   map: () => openMenu("map"),
   rotate: () => {
-    if (building) building.r += Math.PI / 2;
+    if (building) {
+      building.r += Math.PI / 2;
+      Object.assign(building, refinePlacement(building.x, building.z, building.type, building.r, building.movingIndex));
+    }
   },
   escape: () => {
     if(fishingSession)return fishingSession.finish(false,"La ligne est rangée.");
@@ -214,8 +238,7 @@ input.onGround = (sx, sy) => {
   if (hit) {
     aimPoint.copy(hit.point);
     if (building) {
-      building.x = snapPlacement(aimPoint.x, building.type);
-      building.z = snapPlacement(aimPoint.z, building.type);
+      Object.assign(building, refinePlacement(aimPoint.x, aimPoint.z, building.type, building.r, building.movingIndex));
     }
   }
 };
@@ -1103,12 +1126,14 @@ function applySettings() {
 function startBuild(type, movingIndex=-1) {
   closeModal();
   if (movingIndex<0 && !state.inventory[type]) return;
+  const initialR=movingIndex>=0?state.buildings[movingIndex].r:0;
+  const initial=refinePlacement(state.player.x + 2,state.player.z,type,initialR,movingIndex);
   building = {
     type,
     movingIndex,
-    r: movingIndex>=0?state.buildings[movingIndex].r:0,
-    x: snapPlacement(state.player.x + 2, type),
-    z: snapPlacement(state.player.z, type),
+    r: initialR,
+    x: initial.x,
+    z: initial.z,
   };
   if (preview) preview.removeFromParent();
   preview = new T.Group();

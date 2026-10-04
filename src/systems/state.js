@@ -225,18 +225,25 @@ export function gainXp(c, amount) {
 export function canPlace(s, x, z, collides, type='lamp', rotation=0, ignore=-1) {
  const location=s.location||'world', y=s.player.y||0, [w,d]=footprint(type,rotation);
  if(!Number.isFinite(x)||!Number.isFinite(z)) return false;
- // Indoors, use the actual inner wall line (with only a few centimetres of visual clearance).
- if(location==='world' ? !(x-w/2>-44 && x+w/2<-15 && z-d/2>19 && z+d/2<42) : !(Math.abs(x)+w/2<=8.82 && Math.abs(z)+d/2<=7.82)) return false;
+ // The indoor limits are the visible inner faces of the plaster walls: furniture may touch them exactly.
+ if(location==='world' ? !(x-w/2>-44 && x+w/2<-15 && z-d/2>19 && z+d/2<42) : !(Math.abs(x)+w/2<=8.8750001 && Math.abs(z)+d/2<=7.8750001)) return false;
  // Keep the front door and the entire stair route clear, on both storeys.
  if(location!=='world' && ((Math.abs(x)<2 && z+d/2>5) || (x+w/2>5 && z-d/2<4))) return false;
- const probeRadius=location==='world'?.12:.02;
+ // Indoors the footprint itself already represents the object edge, so adding a probe radius would recreate a visible gap.
+ const probeRadius=location==='world'?.12:0;
  for(const dx of [-w/2,0,w/2]) for(const dz of [-d/2,0,d/2]) if(collides(x+dx,z+dz,probeRadius)) return false;
  if(s.buildings.some((b,i)=>{
   if(i===ignore || spaceOf(b)!==location || Math.abs((b.y||0)-y)>1) return false;
   const [bw,bd]=footprint(b.type,b.r);
-  // Fence sections may touch end-to-end/side-to-side. A tiny tolerance hides seams but still rejects real overlap.
-  const clearance=type==='fence'&&b.type==='fence'?-.01:.15;
-  return Math.abs(b.x-x)<(w+bw)/2+clearance && Math.abs(b.z-z)<(d+bd)/2+clearance;
+  if(type==='fence' && b.type==='fence') {
+   // Fences may share an endpoint, including 90° corners, but may not occupy the same run.
+   const ends=(cx,cz,r)=>{const hx=Math.cos(r)*.95,hz=-Math.sin(r)*.95;return [[cx+hx,cz+hz],[cx-hx,cz-hz]];};
+   const touching=ends(x,z,rotation).some(a=>ends(b.x,b.z,b.r||0).some(c=>Math.hypot(a[0]-c[0],a[1]-c[1])<.025));
+   // Endpoint sharing is only a connection when the two sections have distinct centres.
+   if(touching && Math.hypot(b.x-x,b.z-z)>.9) return false;
+   return Math.abs(b.x-x)<(w+bw)/2-.005 && Math.abs(b.z-z)<(d+bd)/2-.005;
+  }
+  return Math.abs(b.x-x)<(w+bw)/2+.15 && Math.abs(b.z-z)<(d+bd)/2+.15;
  })) return false;
  return location!=='world' || !s.plots.some(p=>Math.abs(p.x-x)<w/2+1.15 && Math.abs(p.z-z)<d/2+1.15);
 }

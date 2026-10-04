@@ -31,7 +31,8 @@ export const EXTRA_RECIPES = [
 export const FOOD = {bread:18,stew:45,grilledFish:30};
 export const spaceOf = b => b.location || 'world';
 export function footprint(type, r=0) {
- const size={sleepingBed:[1.8,2.5],chest:[1.7,1],furnace:[1.8,1.8],table:[2.4,1.5],chair:[.8,.8],shelf:[2,.65],rug:[2.8,2],stove:[1.6,1.2],wardrobe:[1.8,1],composter:[1.5,1.5],lamp:[.5,.5],fence:[1.9,.3]}[type]||[1.9,1];
+ // Placement footprints mirror the visible meshes so furniture can sit truly flush to walls.
+ const size={sleepingBed:[1.85,2.5],chest:[1.7,1],furnace:[1.6,1.2],table:[2.4,1.5],chair:[.8,.8],shelf:[2,.65],rug:[2.8,2],stove:[1.6,1.2],wardrobe:[1.7,1],composter:[1.5,1.5],lamp:[.5,.5],fence:[1.9,.3],bed:[1.8,1],workbench:[1.9,.8],bench:[1.9,.8]}[type]||[1.9,1];
  return Math.abs(Math.sin(r))>.5?[size[1],size[0]]:size;
 }
 export function furnitureBlocks(b,x,z,r=.4,y=0,location='world') {
