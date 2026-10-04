@@ -136,6 +136,18 @@
       </div>
     </section>
     <pre id="debug" hidden></pre>
-    <script type="module" src="./src/main.js"></script>
+    <script>
+      // Keep startup failures visible instead of leaving an endless loading screen.
+      function showStartupError(message) {
+        const loading = document.getElementById('loading');
+        if (!loading || loading.hidden) return;
+        const text = loading.querySelector('p');
+        text.style.cssText = 'max-width:85vw;letter-spacing:normal;overflow-wrap:anywhere';
+        text.textContent = 'Le jeu n’a pas pu démarrer : ' + message;
+      }
+      window.addEventListener('error', event => showStartupError(event.message || 'Un fichier du jeu n’a pas été chargé.'));
+      window.addEventListener('unhandledrejection', event => showStartupError(event.reason?.message || String(event.reason)));
+    </script>
+    <script type="module" src="./src/main.js?v=17" onerror="showStartupError('Impossible de charger le jeu. Vérifiez votre connexion puis actualisez la page.')"></script>
   </body>
 </html>
