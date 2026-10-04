@@ -203,7 +203,7 @@ const input = new Input(canvas, {
   },
 });
 input.onGround = (sx, sy) => {
-  if (!started || battle || fishingSession || !$("modal").hidden) return;
+  if (!started || !building || battle || fishingSession || !$("modal").hidden) return;
   raycaster.setFromCamera(
     { x: (sx / innerWidth) * 2 - 1, y: 1 - (sy / innerHeight) * 2 },
     camera,
@@ -214,16 +214,6 @@ input.onGround = (sx, sy) => {
     if (building) {
       building.x = Math.round(aimPoint.x);
       building.z = Math.round(aimPoint.z);
-    } else {
-      input.route = findPath(
-        state.player,
-        { x: aimPoint.x, z: aimPoint.z },
-        (x, z) =>
-          solidAt(x, z, 0.48) ||
-          state.buildings.some(b=>furnitureBlocks(b,x,z,.4,state.player.y||0,state.location)),
-      );
-      input.target = input.route.shift() || null;
-      if (!input.target) toast("Choisissez un endroit accessible au sol.");
     }
   }
 };
