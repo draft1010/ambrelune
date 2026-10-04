@@ -152,12 +152,20 @@ export class Input {
     joy.addEventListener("pointerup", reset);
     joy.addEventListener("pointercancel", reset);
     const run = document.getElementById("runBtn");
-    run.addEventListener("pointerdown", (e) => {
-      run.setPointerCapture(e.pointerId);
-      this.running = true;
+    this.runButton = run;
+    this.running = this.running;
+    run.addEventListener("click", () => {
+      onStart();
+      this.running = !this.running;
     });
-    for (const ev of ["pointerup", "pointercancel"])
-      run.addEventListener(ev, () => (this.running = false));
+  }
+  get running() { return this._running || false; }
+  set running(value) {
+    this._running = !!value;
+    if (this.runButton) {
+      this.runButton.textContent = this._running ? "Marcher" : "Courir";
+      this.runButton.setAttribute("aria-pressed", String(this._running));
+    }
   }
   vector() {
     let x =
