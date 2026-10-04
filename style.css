@@ -4467,3 +4467,29 @@ body.inventory-dragging{overscroll-behavior:none}
     z-index:100 !important;
   }
 }
+
+/* ===== V32 · correctifs interaction Sac tactile ===== */
+@media (pointer:coarse) {
+  /* Le sélecteur V31 plus spécifique forçait display:flex même sur les fiches [hidden]. */
+  #modal .paper.inventory-paper .inventory-detail[hidden] {
+    display:none !important;
+  }
+
+  /* Zone de fermeture Android : grosse cible tactile, toujours au-dessus du carnet. */
+  #modal .paper.journal-paper.inventory-paper #closeModal {
+    position:absolute !important;
+    top:max(8px, env(safe-area-inset-top)) !important;
+    right:max(8px, env(safe-area-inset-right)) !important;
+    width:46px !important;
+    height:46px !important;
+    min-width:46px !important;
+    min-height:46px !important;
+    display:grid !important;
+    place-items:center !important;
+    padding:0 !important;
+    z-index:10000 !important;
+    pointer-events:auto !important;
+    touch-action:manipulation !important;
+    -webkit-tap-highlight-color:transparent;
+  }
+}

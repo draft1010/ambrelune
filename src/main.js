@@ -557,6 +557,15 @@ $("continueBtn").onclick = () => {
   if (s) begin(s);
 };
 $("closeModal").onclick = closeModal;
+// Android/coarse pointer fallback: some browsers can suppress the synthetic click
+// inside the fullscreen inventory after touch-action changes. Pointer-up closes it
+// directly without affecting mouse/desktop behaviour.
+$("closeModal").addEventListener("pointerup", (event) => {
+  if (event.pointerType !== "touch") return;
+  event.preventDefault();
+  event.stopPropagation();
+  closeModal();
+});
 $("menuBtn").onclick = () => openMenu();
 $("mapBtn").onclick = () => openMenu("map");
 $("actBtn").onclick = interact;

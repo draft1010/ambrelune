@@ -1,4 +1,4 @@
-const CACHE = "ambrelune-v31-mobile-bag-desktop-layout";
+const CACHE = "ambrelune-v32-mobile-bag-interaction-fix";
 const FILES = [
   "./src/systems/encounters.js",
   "./src/rendering/fountain.js",
