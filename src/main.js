@@ -60,7 +60,7 @@ import {
   gainXp,
   canPlace,
 } from "./systems/state.js";
-import { Input } from "./systems/input.js?v=17";
+import { Input } from "./systems/input.js?v=18";
 import { AudioGarden } from "./systems/audio.js";
 const $ = (id) => document.getElementById(id),
   esc = (s) =>
