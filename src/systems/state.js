@@ -225,10 +225,18 @@ export function gainXp(c, amount) {
 export function canPlace(s, x, z, collides, type='lamp', rotation=0, ignore=-1) {
  const location=s.location||'world', y=s.player.y||0, [w,d]=footprint(type,rotation);
  if(!Number.isFinite(x)||!Number.isFinite(z)) return false;
- if(location==='world' ? !(x-w/2>-44 && x+w/2<-15 && z-d/2>19 && z+d/2<42) : !(Math.abs(x)+w/2<8.4 && Math.abs(z)+d/2<7.4)) return false;
+ // Indoors, use the actual inner wall line (with only a few centimetres of visual clearance).
+ if(location==='world' ? !(x-w/2>-44 && x+w/2<-15 && z-d/2>19 && z+d/2<42) : !(Math.abs(x)+w/2<=8.82 && Math.abs(z)+d/2<=7.82)) return false;
  // Keep the front door and the entire stair route clear, on both storeys.
  if(location!=='world' && ((Math.abs(x)<2 && z+d/2>5) || (x+w/2>5 && z-d/2<4))) return false;
- for(const dx of [-w/2,0,w/2]) for(const dz of [-d/2,0,d/2]) if(collides(x+dx,z+dz,.12)) return false;
- if(s.buildings.some((b,i)=>{if(i===ignore || spaceOf(b)!==location || Math.abs((b.y||0)-y)>1) return false;const [bw,bd]=footprint(b.type,b.r);return Math.abs(b.x-x)<(w+bw)/2+.15 && Math.abs(b.z-z)<(d+bd)/2+.15;})) return false;
+ const probeRadius=location==='world'?.12:.02;
+ for(const dx of [-w/2,0,w/2]) for(const dz of [-d/2,0,d/2]) if(collides(x+dx,z+dz,probeRadius)) return false;
+ if(s.buildings.some((b,i)=>{
+  if(i===ignore || spaceOf(b)!==location || Math.abs((b.y||0)-y)>1) return false;
+  const [bw,bd]=footprint(b.type,b.r);
+  // Fence sections may touch end-to-end/side-to-side. A tiny tolerance hides seams but still rejects real overlap.
+  const clearance=type==='fence'&&b.type==='fence'?-.01:.15;
+  return Math.abs(b.x-x)<(w+bw)/2+clearance && Math.abs(b.z-z)<(d+bd)/2+clearance;
+ })) return false;
  return location!=='world' || !s.plots.some(p=>Math.abs(p.x-x)<w/2+1.15 && Math.abs(p.z-z)<d/2+1.15);
 }

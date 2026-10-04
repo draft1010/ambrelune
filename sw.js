@@ -1,4 +1,4 @@
-const CACHE = "ambrelune-v20-startup-preload-low-default";
+const CACHE = "ambrelune-v21-placement-fence-wall";
 const FILES = [
   "./src/systems/encounters.js",
   "./src/rendering/fountain.js",

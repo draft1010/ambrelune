@@ -15,6 +15,15 @@ export function indoorCollision(x,z,r=.4,y=0) {
  if(y>3.3 && Math.abs(z+.9)<r+.12 && x<4.9 && Math.abs(x+2)>1.2+r) return true;
  return false;
 }
+// Placement uses the real room envelope rather than the larger player-safety margin.
+// This lets furniture sit visually against a wall while keeping the stair/partition solid.
+export function indoorPlacementCollision(x,z,r=.02,y=0) {
+ if(Math.abs(x)>8.85-r || Math.abs(z)>7.85-r) return true;
+ if(Math.abs(x-5.15)<.14+r && z>-5.1-r && z<3.1+r) return true;
+ if(y>3.3 && x>5.3-r && Math.abs(z-3.3)<.16+r)return true;
+ if(y>3.3 && Math.abs(z+.9)<r+.12 && x<4.9 && Math.abs(x+2)>1.2+r) return true;
+ return false;
+}
 export class Interior {
  constructor() {
   this.scene=new T.Scene(); this.scene.background=new T.Color('#b8ad96');

@@ -1,6 +1,6 @@
 import { prepareOccluders, updateCutawayScreen } from './rendering/occlusion.js';
 import { FishingSession } from './rendering/fishing.js';
-import { Interior, indoorHeight, indoorCollision } from './rendering/interior.js';
+import { Interior, indoorHeight, indoorCollision, indoorPlacementCollision } from './rendering/interior.js';
 import { CROPS, BUILDABLES, FOOD, spaceOf, furnitureBlocks, stationAvailable, transfer, recover } from './systems/homestead.js';
 import {
   gauge,
@@ -10,8 +10,8 @@ import {
   gardenView,
 } from "./rendering/journal-ui.js";
 import { BattleStage } from "./rendering/battle-stage.js";
-import { character, characterActionForTool, preloadCharacterAssets } from "./rendering/character-assets.js?v=20";
-import { modelCreature, preloadMonsterModels } from "./rendering/monster-models.js?v=20";
+import { character, characterActionForTool, preloadCharacterAssets } from "./rendering/character-assets.js?v=21";
+import { modelCreature, preloadMonsterModels } from "./rendering/monster-models.js?v=21";
 import {
   creaturePortrait3D,
   mountCreaturePortraits,
@@ -60,7 +60,7 @@ import {
   gainXp,
   canPlace,
 } from "./systems/state.js";
-import { Input } from "./systems/input.js?v=20";
+import { Input } from "./systems/input.js?v=21";
 import { AudioGarden } from "./systems/audio.js";
 const $ = (id) => document.getElementById(id),
   esc = (s) =>
@@ -145,6 +145,8 @@ prepareOccluders(scene);
 const currentScene = () => interior?.scene || scene;
 const surfaceHeight = (x,z) => interior ? indoorHeight(x,z,state.player.y||0) : height(x,z);
 const solidAt = (x,z,r=.4) => interior ? indoorCollision(x,z,r,state.player.y||0) : world.collides(x,z,r);
+const placementSolidAt = (x,z,r=.12) => interior ? indoorPlacementCollision(x,z,r,state.player.y||0) : world.collides(x,z,r);
+const snapPlacement = (value,type) => { const step=(interior||type==='fence')?.1:1; return Math.round(value/step)*step; };
 function syncWorld() { world.sync({...state,buildings:state.buildings.filter(b=>spaceOf(b)==='world')}); interior?.sync(state); }
 function sceneTransition(){const veil=document.createElement('div');veil.className='scene-transition';document.body.append(veil);veil.addEventListener('animationend',()=>veil.remove(),{once:true});}
 function enterHome(location='home') {
@@ -212,8 +214,8 @@ input.onGround = (sx, sy) => {
   if (hit) {
     aimPoint.copy(hit.point);
     if (building) {
-      building.x = Math.round(aimPoint.x);
-      building.z = Math.round(aimPoint.z);
+      building.x = snapPlacement(aimPoint.x, building.type);
+      building.z = snapPlacement(aimPoint.z, building.type);
     }
   }
 };
@@ -1105,8 +1107,8 @@ function startBuild(type, movingIndex=-1) {
     type,
     movingIndex,
     r: movingIndex>=0?state.buildings[movingIndex].r:0,
-    x: Math.round(state.player.x + 2),
-    z: Math.round(state.player.z),
+    x: snapPlacement(state.player.x + 2, type),
+    z: snapPlacement(state.player.z, type),
   };
   if (preview) preview.removeFromParent();
   preview = new T.Group();
@@ -1129,7 +1131,7 @@ function startBuild(type, movingIndex=-1) {
 function placeBuilding() {
   if (!building) return;
   const { x, z, type, r } = building;
-  if (!canPlace(state, x, z, (x, z, r) => solidAt(x, z, r),type,r,building.movingIndex)) {
+  if (!canPlace(state, x, z, (x, z, r) => placementSolidAt(x, z, r),type,r,building.movingIndex)) {
     toast(
       "Placez cette création sur votre terrain, à distance des cultures et des obstacles.",
     );
@@ -1846,7 +1848,7 @@ function loop() {
       );
       preview.rotation.y = building.r;
       const valid = canPlace(state, building.x, building.z, (x, z, r) =>
-        solidAt(x, z, r), building.type, building.r, building.movingIndex
+        placementSolidAt(x, z, r), building.type, building.r, building.movingIndex
       );
       preview.traverse((o) => {
         if (o.isMesh) o.material.color.set(valid ? "#a0d4a4" : "#dc8272");
