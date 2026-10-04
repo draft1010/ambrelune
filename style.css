@@ -3626,3 +3626,185 @@ body.inventory-dragging{overscroll-behavior:none}
   .paper.storage-paper .inventory-slot{max-height:58px}
   .paper.storage-paper .storage-help{font-size:10px;line-height:1.35;margin-bottom:7px}
 }
+
+/* ===== V29 · Rangement tactile plein écran sans défilement =====
+   Sur téléphone/tablette, le sac et le rangement restent toujours côte à côte.
+   La taille des cases est calculée à partir de la largeur ET de la hauteur disponible
+   afin que les 24 cases du sac et les 30 cases du coffre tiennent entièrement à l'écran. */
+@media (pointer:coarse) {
+  #modal:has(.paper.storage-paper) {
+    padding:0;
+    place-items:center;
+    overflow:hidden;
+  }
+
+  .paper.storage-paper {
+    --storage-slot-size:min(
+      68px,
+      calc((100vw - 84px - env(safe-area-inset-left) - env(safe-area-inset-right)) / 12),
+      calc((100dvh - 128px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) / 5)
+    );
+    width:calc(100vw - 4px - env(safe-area-inset-left) - env(safe-area-inset-right))!important;
+    max-width:none!important;
+    height:calc(100dvh - 4px - env(safe-area-inset-top) - env(safe-area-inset-bottom))!important;
+    max-height:calc(100dvh - 4px - env(safe-area-inset-top) - env(safe-area-inset-bottom))!important;
+    margin:calc(2px + env(safe-area-inset-top)) calc(2px + env(safe-area-inset-right)) calc(2px + env(safe-area-inset-bottom)) calc(2px + env(safe-area-inset-left));
+    padding:6px 8px!important;
+    border-radius:14px;
+    overflow:hidden!important;
+    touch-action:none!important;
+    -webkit-overflow-scrolling:auto;
+  }
+
+  .paper.storage-paper #modalContent {
+    height:100%;
+    min-height:0;
+    overflow:hidden;
+    display:flex;
+    flex-direction:column;
+  }
+
+  .paper.storage-paper > #closeModal {
+    top:2px;
+    right:4px;
+    width:34px;
+    height:34px;
+    min-height:0;
+    padding:0;
+    font-size:23px;
+    line-height:34px;
+  }
+
+  .paper.storage-paper .eyebrow {
+    margin:0 38px 0 0;
+    min-height:8px;
+    font-size:8px;
+    line-height:1;
+    letter-spacing:3px;
+  }
+
+  .paper.storage-paper h2 {
+    margin:1px 38px 2px 0;
+    font-size:clamp(20px,5.2dvh,30px);
+    line-height:1;
+  }
+
+  .paper.storage-paper .card-actions {
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:4px;
+    margin:2px 0 3px;
+  }
+
+  .paper.storage-paper .card-actions button {
+    min-height:28px;
+    padding:3px 6px;
+    border-radius:8px;
+    font-size:clamp(9px,2.2dvh,12px);
+    line-height:1.05;
+  }
+
+  .paper.storage-paper .storage-inventory {
+    flex:1 1 auto;
+    min-height:0;
+    margin-top:2px;
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+  }
+
+  /* Les gestes sont réservés au drag & drop : aucune zone scrollable entre les deux grilles. */
+  .paper.storage-paper .storage-help {
+    display:none;
+  }
+
+  .paper.storage-paper .storage-columns {
+    flex:1 1 auto;
+    min-height:0;
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;
+    gap:6px!important;
+    align-items:start;
+    overflow:hidden;
+  }
+
+  .paper.storage-paper .storage-panel {
+    min-width:0;
+    max-width:100%;
+    padding:4px!important;
+    border-radius:10px;
+    overflow:hidden!important;
+    align-self:start;
+  }
+
+  .paper.storage-paper .storage-panel header {
+    min-height:14px;
+    margin:0 2px 3px;
+    gap:4px;
+    line-height:1;
+  }
+
+  .paper.storage-paper .storage-panel h3 {
+    margin:0;
+    font-size:clamp(10px,2.4dvh,14px);
+    line-height:1;
+  }
+
+  .paper.storage-paper .storage-panel header span {
+    font-size:clamp(7px,1.8dvh,10px);
+    line-height:1;
+    white-space:nowrap;
+  }
+
+  .paper.storage-paper .storage-slots {
+    display:grid;
+    grid-template-columns:repeat(6,var(--storage-slot-size))!important;
+    grid-auto-rows:var(--storage-slot-size);
+    gap:2px!important;
+    justify-content:center;
+    align-content:start;
+    min-width:0;
+    max-width:100%;
+    overflow:hidden;
+  }
+
+  .paper.storage-paper .inventory-slot {
+    width:var(--storage-slot-size)!important;
+    height:var(--storage-slot-size)!important;
+    min-width:0!important;
+    min-height:0!important;
+    max-width:var(--storage-slot-size)!important;
+    max-height:var(--storage-slot-size)!important;
+    aspect-ratio:1/1;
+    border-radius:5px!important;
+    padding:1px;
+  }
+
+  .paper.storage-paper .inventory-slot .item-art {
+    width:78%;
+    height:78%;
+    max-width:none;
+    max-height:none;
+  }
+
+  .paper.storage-paper .slot-quantity {
+    right:1px;
+    top:1px;
+    min-width:clamp(14px,3.8dvh,19px);
+    height:clamp(14px,3.8dvh,19px);
+    padding:0 3px;
+    font-size:clamp(7px,1.8dvh,9px);
+    line-height:1;
+  }
+
+  .paper.storage-paper .inventory-slot.empty i {
+    left:3px;
+    top:2px;
+    font-size:clamp(6px,1.45dvh,8px);
+  }
+
+  .paper.storage-paper .inventory-drag-ghost {
+    width:max(38px,var(--storage-slot-size))!important;
+    height:max(38px,var(--storage-slot-size))!important;
+  }
+}
