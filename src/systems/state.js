@@ -73,6 +73,16 @@ export function normalizeSave(raw) {
     team: raw.team.map((c) => ({ ...makeCreature(c.id, c.level), ...c })),
     flags: { ...raw.flags },
     discovered: raw.discovered || ["city"],
+    plots: Array.isArray(raw.plots)
+      ? raw.plots.map((p) => {
+          const plot = { ...p };
+          // An empty plot must always render dry. Older/mobile saves could
+          // keep a stale moisture value and make freshly planted seeds look
+          // already watered.
+          if ((plot.stage || 0) === 0) plot.water = 0;
+          return plot;
+        })
+      : [],
   };
 }
 export function load(storage = localStorage) {
@@ -139,6 +149,10 @@ export function farmAction(s, p, tool) {
       p.seed = seed;
       p.stage = 1;
       p.growth = 0;
+      // Planting always starts on dry soil. Do not inherit stale moisture
+      // from an older save or a previous crop.
+      p.water = 0;
+      p.fertilized = false;
       s.stats.planted++;
       return `${CROPS[seed].name} planté(e). Un peu d’eau pour commencer !`;
     }

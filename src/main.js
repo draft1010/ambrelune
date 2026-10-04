@@ -649,7 +649,12 @@ function interact() {
     return startBattle(a.source);
   }
   if (a.type === "plot") {
+    const previousStage = a.source.stage;
     const text = farmAction(state, a.source, tool);
+    // Give a freshly planted plot a short, visible dry phase before the
+    // optional companion helper can water it automatically.
+    if (tool === "hoe" && previousStage === 0 && a.source.stage === 1)
+      farmHelperElapsed = 0;
     syncWorld();
     audio.play(tool === "water" ? "water" : "harvest");
     world.burst(
