@@ -895,6 +895,12 @@ function openMenu(tab = modalTab) {
   document.querySelectorAll("[data-craft]").forEach(
     (b) =>
       (b.onclick = () => {
+        // Keep the workshop exactly where the player was browsing. Rebuilding
+        // the journal after a craft is useful to refresh stocks/buttons, but it
+        // must never throw the list back to the top.
+        const previousContent = document.querySelector("#modal .journal-content");
+        const previousScrollTop = previousContent?.scrollTop ?? 0;
+        const previousFilter = $("craftFilter")?.value ?? "all";
         if (
           craft(
             state,
@@ -904,6 +910,22 @@ function openMenu(tab = modalTab) {
           audio.play("craft");
           questCheck();
           openMenu("craft");
+
+          const filter = $("craftFilter");
+          if (filter) {
+            filter.value = previousFilter;
+            filter.dispatchEvent(new Event("change"));
+          }
+
+          const restoreCraftScroll = () => {
+            const content = document.querySelector("#modal .journal-content");
+            if (!content) return;
+            const maxScroll = Math.max(0, content.scrollHeight - content.clientHeight);
+            content.scrollTop = Math.min(previousScrollTop, maxScroll);
+          };
+          // Restore synchronously, then once more after layout/portraits settle.
+          restoreCraftScroll();
+          requestAnimationFrame(restoreCraftScroll);
           updateHUD();
         }
       }),

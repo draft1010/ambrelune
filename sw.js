@@ -1,4 +1,4 @@
-const CACHE = "ambrelune-v22-flush-placement";
+const CACHE = "ambrelune-v23-craft-scroll";
 const FILES = [
   "./src/systems/encounters.js",
   "./src/rendering/fountain.js",
