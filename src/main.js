@@ -557,34 +557,56 @@ $("continueBtn").onclick = () => {
   if (s) begin(s);
 };
 const closeModalButton = $("closeModal");
-closeModalButton.onclick = closeModal;
+closeModalButton.onclick = (event) => {
+  event?.preventDefault?.();
+  event?.stopPropagation?.();
+  closeModal();
+};
 
-// Android: in the fullscreen bag, touch-action:none on the journal can make the
-// browser cancel the pointer before pointerup/click. Close on pointerdown in the
-// capture phase instead, before the inventory drag handlers can see the gesture.
-const forceTouchModalClose = (event) => {
+// V34 Android: never hide the modal on pointerdown. Doing that can expose the HUD
+// while the finger is still on the screen; the following pointerup/click then lands
+// on the control underneath and can reopen the Sac immediately ("tap-through").
+// Capture the pointer on the X, keep the modal present for the whole gesture, then
+// close only when that same gesture ends.
+let modalClosePointer = null;
+let modalCloseTouchArmed = false;
+const armModalClose = (event) => {
   if (event.pointerType && event.pointerType !== "touch" && event.pointerType !== "pen") return;
+  modalClosePointer = event.pointerId ?? null;
+  try { if (event.pointerId != null) closeModalButton.setPointerCapture(event.pointerId); } catch {}
   event.preventDefault();
   event.stopPropagation();
   event.stopImmediatePropagation?.();
+};
+const finishModalClose = (event) => {
+  if (event.pointerType && event.pointerType !== "touch" && event.pointerType !== "pen") return;
+  if (modalClosePointer != null && event.pointerId != null && event.pointerId !== modalClosePointer) return;
+  event.preventDefault();
+  event.stopPropagation();
+  event.stopImmediatePropagation?.();
+  try { if (event.pointerId != null && closeModalButton.hasPointerCapture?.(event.pointerId)) closeModalButton.releasePointerCapture(event.pointerId); } catch {}
+  modalClosePointer = null;
   closeModal();
 };
-closeModalButton.addEventListener("pointerdown", forceTouchModalClose, { capture: true, passive: false });
+closeModalButton.addEventListener("pointerdown", armModalClose, { capture: true, passive: false });
+closeModalButton.addEventListener("pointerup", finishModalClose, { capture: true, passive: false });
+closeModalButton.addEventListener("pointercancel", () => { modalClosePointer = null; }, { capture: true });
 
-// Older Android WebViews may emit touch events without a usable PointerEvent.
+// Fallback for older Android WebViews without reliable Pointer Events.
 closeModalButton.addEventListener("touchstart", (event) => {
+  modalCloseTouchArmed = true;
+  event.preventDefault();
+  event.stopPropagation();
+}, { capture: true, passive: false });
+closeModalButton.addEventListener("touchend", (event) => {
+  if (!modalCloseTouchArmed) return;
+  modalCloseTouchArmed = false;
   event.preventDefault();
   event.stopPropagation();
   closeModal();
 }, { capture: true, passive: false });
+closeModalButton.addEventListener("touchcancel", () => { modalCloseTouchArmed = false; }, { capture: true });
 
-// Last-resort delegated capture: if the button is tapped while another handler
-// is rebuilding the bag, close it before that handler can cancel the gesture.
-document.addEventListener("pointerdown", (event) => {
-  if (!event.target?.closest?.("#closeModal")) return;
-  if (event.pointerType !== "touch" && event.pointerType !== "pen") return;
-  forceTouchModalClose(event);
-}, true);
 $("menuBtn").onclick = () => openMenu();
 $("mapBtn").onclick = () => openMenu("map");
 $("actBtn").onclick = interact;

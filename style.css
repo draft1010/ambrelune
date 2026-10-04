@@ -4515,3 +4515,11 @@ body.inventory-dragging{overscroll-behavior:none}
     isolation:isolate;
   }
 }
+
+
+/* ===== V34 · fermeture Android sans tap-through ===== */
+@media (pointer:coarse) {
+  #modal .paper.journal-paper.inventory-paper #closeModal {
+    touch-action:manipulation !important;
+  }
+}
