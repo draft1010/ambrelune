@@ -400,9 +400,11 @@ function showModal(html, closable = true) {
   const paper = document.querySelector("#modal .paper");
   const isJournal = html.includes('class="journal-shell"');
   const isStorage = html.includes('class="storage-inventory"');
+  const isInventory = html.includes('class="inventory-layout"');
   paper?.classList.toggle("journal-paper", isJournal);
   paper?.classList.toggle("storage-paper", isStorage);
-  paper?.classList.toggle("story-dialog", !isJournal && !isStorage);
+  paper?.classList.toggle("inventory-paper", isInventory);
+  paper?.classList.toggle("story-dialog", !isJournal && !isStorage && !isInventory);
   $("modalContent").innerHTML = html;
   $("modal").hidden = false;
   $("hud").inert=true;$("intro").inert=true;
