@@ -60,7 +60,7 @@ import {
   gainXp,
   canPlace,
 } from "./systems/state.js";
-import { Input } from "./systems/input.js";
+import { Input } from "./systems/input.js?v=17";
 import { AudioGarden } from "./systems/audio.js";
 const $ = (id) => document.getElementById(id),
   esc = (s) =>
@@ -1778,7 +1778,9 @@ function updateOrientationGate(){
 window.addEventListener('resize',updateOrientationGate);
 window.addEventListener('orientationchange',updateOrientationGate);
 window.addEventListener('keydown',e=>{if(portraitBlocked){if(!['Tab','Enter',' '].includes(e.key))e.preventDefault();e.stopImmediatePropagation();}},true);
-matchMedia('(pointer:coarse)').addEventListener('change',updateOrientationGate);
+const orientationMedia=matchMedia('(pointer:coarse)');
+if(orientationMedia.addEventListener)orientationMedia.addEventListener('change',updateOrientationGate);
+else orientationMedia.addListener?.(updateOrientationGate);
 new MutationObserver(updateOrientationGate).observe(document.body,{attributes:true,attributeFilter:['class']});
 updateOrientationGate();
 
