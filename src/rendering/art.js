@@ -36,6 +36,18 @@ geometries.gable = new T.ExtrudeGeometry(gableShape, {
 
 geometries.gable.translate(0, 0, -0.5);
 
+// Worn Roman paving blocks: three shared low-poly silhouettes, bevelled top edges.
+for(let variant=0;variant<3;variant++){
+ const outline=[[-.36,-.5],[.34,-.49],[.5,-.33],[.49,.34],[.32,.5],[-.35,.48],[-.5,.31],[-.48,-.3]];
+ const positions=[],uv=[],indices=[];
+ for(let ring=0;ring<3;ring++)for(let i=0;i<8;i++){
+  const [ox,oz]=outline[i],x=variant===1?oz:variant===2?-ox:ox,z=variant===1?-ox:variant===2?-oz:oz,k=ring===2?.9:1;
+  positions.push(x*k,[-.5,.1,.5][ring],z*k);uv.push(x+.5,z+.5);
+ }
+ positions.push(0,.5,0,0,-.5,0);uv.push(.5,.5,.5,.5);
+ for(let i=0;i<8;i++){const n=(i+1)%8;indices.push(24,16+n,16+i,25,i,n);for(let ring=0;ring<2;ring++){const a=ring*8+i,b=ring*8+n,c=b+8,d=a+8;indices.push(a,c,b,a,d,c);}}
+ let g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(positions,3));g.setAttribute('uv',new T.Float32BufferAttribute(uv,2));g.setIndex(indices);g=g.toNonIndexed();g.computeVertexNormals();geometries['paver'+variant]=g;
+}
 for (const g of Object.values(geometries)) g.userData.sharedAsset = true;
 const materials = new Map();
 
@@ -509,6 +521,10 @@ function texture(kind) {
     }
   }
 
+  if(kind==='paving'){
+   fill('#e0ddd5');
+   for(let i=0;i<2300;i++){const v=grain()>.5;g.fillStyle=v?'rgba(255,255,255,.11)':'rgba(72,65,57,.08)';g.beginPath();g.ellipse(grain()*128,grain()*128,.3+grain()*1.8,.3+grain(),grain()*6.28,0,Math.PI*2);g.fill();}
+  }
   const t =
     new T.CanvasTexture(c);
 
