@@ -619,23 +619,23 @@ export class World {
     for (let x = -48; x < 10; x += 0.78)
       for (let z = -53; z < 23; z += 0.72) {
         if (!isRoad(x, z)) continue;
-        const xx = x + (Math.round(z / 0.72) % 2) * 0.3;
-        const c = ["#8f8988", "#a59a92", "#7f7c80", "#b5a99b"][Math.floor(r() * 4)];
-        const sx = 0.64 + r() * 0.08;
-        const sz = 0.58 + r() * 0.08;
+        const xx = x + (Math.abs(Math.round(z / 0.72)) % 2) * 0.39;
+        const c = ["#9b9588", "#aaa393", "#918d83", "#b5ab97"][Math.floor(r() * 4)];
+        const sx = 0.742 + r() * 0.022;
+        const sz = 0.677 + r() * 0.024;
         f.part(
-          "box",
+          "paver" + (Math.abs(Math.round(x*13+z*7))%3),
           c,
           xx + (r() - 0.5) * 0.035,
-          height(xx, z) + 0.035,
+          height(xx, z) + 0.045,
           z + (r() - 0.5) * 0.025,
           sx,
-          0.035 + r() * 0.015,
+          0.085 + r() * 0.015,
           sz,
           0,
           (r() - 0.5) * 0.055,
           0,
-          "stone",
+          "paving",
         );
       }
 
