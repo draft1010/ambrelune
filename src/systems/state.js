@@ -1,4 +1,4 @@
-import { CROPS, stationAvailable, footprint, spaceOf, BAG_SLOTS, canStore, addToContainer } from "./homestead.js";
+import { CROPS, stationAvailable, footprint, spaceOf, BAG_SLOTS, canStore, addToContainer, syncSlotLayout, storageCapacity } from "./homestead.js";
 import { species, QUESTS, ITEMS } from "./data.js";
 export const SAVE_KEY = "ambrelune.save.v1";
 export function makeCreature(id, level = 3) {
@@ -15,6 +15,17 @@ export function makeCreature(id, level = 3) {
   };
 }
 export function newState(starter = "velune", name = "Élo", color = "#657d95") {
+  const inventory = {
+    wood: 0,
+    stone: 0,
+    fiber: 0,
+    crystal: 0,
+    seed: 12,
+    crop: 0,
+    seal: 8,
+    potion: 3,
+    fence: 2,
+  };
   return {
     version: 1,
     location: "world",
@@ -27,17 +38,8 @@ export function newState(starter = "velune", name = "Élo", color = "#657d95") {
     weather: "soleil",
     coins: 120,
     team: [makeCreature(starter)],
-    inventory: {
-      wood: 0,
-      stone: 0,
-      fiber: 0,
-      crystal: 0,
-      seed: 12,
-      crop: 0,
-      seal: 8,
-      potion: 3,
-      fence: 2,
-    },
+    inventory,
+    inventorySlots: syncSlotLayout(inventory, [], BAG_SLOTS),
     plots: [],
     buildings: [],
     depleted: {},
@@ -62,13 +64,25 @@ export function normalizeSave(raw) {
   )
     throw Error("Sauvegarde incompatible");
   const base = newState();
+  const inventory = Object.fromEntries(Object.entries({...base.inventory,...raw.inventory}).filter(([id,n])=>Object.hasOwn(ITEMS,id)&&Number.isFinite(n)&&n>=0).map(([id,n])=>[id,Math.floor(n)]));
+  const inventorySlots = syncSlotLayout(inventory, Array.isArray(raw.inventorySlots) ? raw.inventorySlots : [], BAG_SLOTS);
+  const buildings = Array.isArray(raw.buildings) ? raw.buildings.map((b) => {
+    const copy = { ...b };
+    if (['chest','shelf','wardrobe'].includes(copy.type)) {
+      copy.storage = Object.fromEntries(Object.entries(copy.storage || {}).filter(([id,n])=>Object.hasOwn(ITEMS,id)&&Number.isFinite(n)&&n>=0).map(([id,n])=>[id,Math.floor(n)]));
+      copy.storageSlots = syncSlotLayout(copy.storage, Array.isArray(copy.storageSlots) ? copy.storageSlots : [], storageCapacity(copy.type));
+    }
+    return copy;
+  }) : [];
   return {
     ...base,
     ...raw,
     stats: { ...base.stats, ...raw.stats },
     location: typeof raw.location==='string' && /^(world|home|house--?\d+--?\d+)$/.test(raw.location) ? raw.location : 'world',
     selectedSeed: CROPS[raw.selectedSeed] ? raw.selectedSeed : 'seed',
-    inventory: Object.fromEntries(Object.entries({...base.inventory,...raw.inventory}).filter(([id,n])=>Object.hasOwn(ITEMS,id)&&Number.isFinite(n)&&n>=0).map(([id,n])=>[id,Math.floor(n)])),
+    inventory,
+    inventorySlots,
+    buildings,
     settings: { ...base.settings, ...raw.settings, quality:['low','medium','high','ultra'].includes(raw.settings?.quality)?raw.settings.quality:base.settings.quality },
     team: raw.team.map((c) => ({ ...makeCreature(c.id, c.level), ...c })),
     flags: { ...raw.flags },
@@ -76,9 +90,6 @@ export function normalizeSave(raw) {
     plots: Array.isArray(raw.plots)
       ? raw.plots.map((p) => {
           const plot = { ...p };
-          // An empty plot must always render dry. Older/mobile saves could
-          // keep a stale moisture value and make freshly planted seeds look
-          // already watered.
           if ((plot.stage || 0) === 0) plot.water = 0;
           return plot;
         })

@@ -1,4 +1,4 @@
-const CACHE = "ambrelune-v27-inventory-slots";
+const CACHE = "ambrelune-v28-drag-drop-inventory";
 const FILES = [
   "./src/systems/encounters.js",
   "./src/rendering/fountain.js",

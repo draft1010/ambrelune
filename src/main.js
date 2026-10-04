@@ -1,7 +1,7 @@
 import { prepareOccluders, updateCutawayScreen } from './rendering/occlusion.js';
 import { FishingSession } from './rendering/fishing.js';
 import { Interior, indoorHeight, indoorCollision, indoorPlacementCollision } from './rendering/interior.js';
-import { CROPS, BUILDABLES, FOOD, spaceOf, footprint, furnitureBlocks, stationAvailable, transfer, recover } from './systems/homestead.js';
+import { CROPS, BUILDABLES, FOOD, spaceOf, footprint, furnitureBlocks, stationAvailable, transfer, recover, moveInventoryStack } from './systems/homestead.js';
 import {
   gauge,
   teamView,
@@ -194,6 +194,140 @@ function leaveHome() {
  player.position.set(state.player.x,height(state.player.x,state.player.z),state.player.z);
  document.body.classList.remove('indoors');persist();
 }
+let inventoryDragSuppressUntil = 0;
+function bindInventoryDragDrop(storage = null, storageIndex = -1) {
+  const root = $("modalContent");
+  if (!root) return;
+  const slots = [...root.querySelectorAll('[data-slot-area][data-slot-index]')];
+  if (!slots.length) return;
+
+  root.addEventListener('click', (event) => {
+    if (Date.now() < inventoryDragSuppressUntil && event.target.closest('[data-slot-area][data-slot-index]')) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }
+  }, true);
+
+  let drag = null;
+  let hover = null;
+  const clearHover = () => {
+    if (hover) hover.classList.remove('drag-target');
+    hover = null;
+  };
+  const finishVisual = () => {
+    clearHover();
+    drag?.source?.classList.remove('drag-source');
+    drag?.ghost?.remove();
+    document.body.classList.remove('inventory-dragging');
+  };
+  const slotAt = (x, y) => {
+    const hit = document.elementFromPoint(x, y)?.closest?.('[data-slot-area][data-slot-index]');
+    return hit && root.contains(hit) ? hit : null;
+  };
+  const moveGhost = (x, y) => {
+    if (!drag?.ghost) return;
+    drag.ghost.style.left = `${x}px`;
+    drag.ghost.style.top = `${y}px`;
+  };
+  const refresh = () => {
+    const paper = document.querySelector('#modal .paper');
+    const oldTop = paper?.scrollTop || 0;
+    const journal = document.querySelector('#modal .journal-content');
+    const oldJournalTop = journal?.scrollTop || 0;
+    if (storage) furnishingMenu(storageIndex);
+    else openMenu('bag');
+    const restore = () => {
+      const nextPaper = document.querySelector('#modal .paper');
+      if (nextPaper) nextPaper.scrollTop = oldTop;
+      const nextJournal = document.querySelector('#modal .journal-content');
+      if (nextJournal) nextJournal.scrollTop = oldJournalTop;
+    };
+    restore();
+    requestAnimationFrame(restore);
+  };
+
+  for (const slot of slots) {
+    if (!slot.classList.contains('filled')) continue;
+    slot.addEventListener('pointerdown', (event) => {
+      if (event.button !== undefined && event.button !== 0) return;
+      slot.setPointerCapture?.(event.pointerId);
+      drag = {
+        pointerId: event.pointerId,
+        source: slot,
+        fromArea: slot.dataset.slotArea,
+        fromIndex: +slot.dataset.slotIndex,
+        startX: event.clientX,
+        startY: event.clientY,
+        active: false,
+        ghost: null,
+      };
+    });
+  }
+
+  const onMove = (event) => {
+    if (!drag || event.pointerId !== drag.pointerId) return;
+    const dx = event.clientX - drag.startX;
+    const dy = event.clientY - drag.startY;
+    if (!drag.active && Math.hypot(dx, dy) < 8) return;
+    if (!drag.active) {
+      drag.active = true;
+      inventoryDragSuppressUntil = Date.now() + 800;
+      drag.source.classList.add('drag-source');
+      drag.ghost = drag.source.cloneNode(true);
+      drag.ghost.removeAttribute('id');
+      drag.ghost.classList.add('inventory-drag-ghost');
+      drag.ghost.querySelectorAll('[id]').forEach((n) => n.removeAttribute('id'));
+      document.body.appendChild(drag.ghost);
+      document.body.classList.add('inventory-dragging');
+    }
+    event.preventDefault();
+    moveGhost(event.clientX, event.clientY);
+    const target = slotAt(event.clientX, event.clientY);
+    if (target !== hover) {
+      clearHover();
+      hover = target;
+      hover?.classList.add('drag-target');
+    }
+  };
+
+  const onEnd = (event) => {
+    if (!drag || event.pointerId !== drag.pointerId) return;
+    const current = drag;
+    current.source?.releasePointerCapture?.(event.pointerId);
+    const target = current.active ? slotAt(event.clientX, event.clientY) : null;
+    if (current.active) {
+      event.preventDefault();
+      inventoryDragSuppressUntil = Date.now() + 800;
+      if (target) {
+        const changed = moveInventoryStack(
+          state,
+          storage,
+          current.fromArea,
+          current.fromIndex,
+          target.dataset.slotArea,
+          +target.dataset.slotIndex,
+        );
+        if (changed) {
+          persist();
+          refresh();
+        }
+      }
+    }
+    finishVisual();
+    drag = null;
+  };
+
+  const onCancel = (event) => {
+    if (!drag || event.pointerId !== drag.pointerId) return;
+    drag.source?.releasePointerCapture?.(event.pointerId);
+    finishVisual();
+    drag = null;
+  };
+  root.addEventListener('pointermove', onMove, { passive: false });
+  root.addEventListener('pointerup', onEnd, { passive: false });
+  root.addEventListener('pointercancel', onCancel, { passive: true });
+}
+
 function furnishingMenu(index) {
  const b=state.buildings[index];if(!b)return;
  const storage=['chest','shelf','wardrobe'].includes(b.type);
@@ -202,7 +336,8 @@ function furnishingMenu(index) {
  $('recoverObject').onclick=()=>{if(!recover(state,index))return toast('Videz le rangement et libérez une case dans le sac.');syncWorld();persist();closeModal();};
  if($('useStation'))$('useStation').onclick=()=>openMenu('craft');
  for(const [id,morning] of [['restMorning',true],['restEvening',false]]) if($(id))$(id).onclick=()=>{if(morning || state.time>=19)state.day++;state.time=morning?7:19;tickFarm(state,65);state.team.forEach(c=>{c.hp=c.maxHp;c.energy=30;c.status=null;});closeModal();syncWorld();persist();toast('Votre équipe est reposée.');};
- for(const [attr,to] of [['store',true],['take',false]])document.querySelectorAll('[data-'+attr+']').forEach(btn=>btn.onclick=()=>{if(!transfer(state,b,btn.dataset[attr],1,to))return toast(to?'Ce rangement est plein.':'Votre sac est plein.');persist();furnishingMenu(index);});
+ for(const [attr,to] of [['store',true],['take',false]])document.querySelectorAll('[data-'+attr+']').forEach(btn=>btn.onclick=()=>{if(!transfer(state,b,btn.dataset[attr],1,to))return toast(to?'Ce rangement est plein.':'Votre sac est plein.');persist();const paper=document.querySelector('#modal .paper'),top=paper?.scrollTop||0;furnishingMenu(index);const restore=()=>{const next=document.querySelector('#modal .paper');if(next)next.scrollTop=top;};restore();requestAnimationFrame(restore);});
+ if(storage) bindInventoryDragDrop(b,index);
 }
 const errors = [];
 window.addEventListener("error", (e) => errors.push(e.message));
@@ -263,8 +398,11 @@ function toast(text) {
 function showModal(html, closable = true) {
   clearCreaturePortraits();
   const paper = document.querySelector("#modal .paper");
-  paper?.classList.toggle("journal-paper", html.includes('class="journal-shell"'));
-  paper?.classList.toggle("story-dialog", !html.includes('class="journal-shell"'));
+  const isJournal = html.includes('class="journal-shell"');
+  const isStorage = html.includes('class="storage-inventory"');
+  paper?.classList.toggle("journal-paper", isJournal);
+  paper?.classList.toggle("storage-paper", isStorage);
+  paper?.classList.toggle("story-dialog", !isJournal && !isStorage);
   $("modalContent").innerHTML = html;
   $("modal").hidden = false;
   $("hud").inert=true;$("intro").inert=true;
@@ -1009,6 +1147,7 @@ function openMenu(tab = modalTab) {
   if($('craftFilter'))$('craftFilter').onchange=e=>document.querySelectorAll('.recipe-card').forEach(card=>card.hidden=e.target.value==='ready'?!card.classList.contains('recipe-ready'):e.target.value!=='all'&&card.dataset.category!==e.target.value);
   if($('inventorySearch'))$('inventorySearch').oninput=e=>{const q=e.target.value.toLocaleLowerCase();document.querySelectorAll('.inventory-slot.filled').forEach(slot=>slot.classList.toggle('search-hidden',!!q&&!slot.dataset.inventoryName.includes(q)));};
   document.querySelectorAll('[data-inventory-item]').forEach(slot=>slot.onclick=()=>{const id=slot.dataset.inventoryItem;document.querySelectorAll('[data-inventory-item]').forEach(s=>s.classList.toggle('selected',s.dataset.inventoryItem===id));document.querySelectorAll('[data-inventory-detail]').forEach(d=>d.hidden=d.dataset.inventoryDetail!==id);});
+  if(tab==='bag') bindInventoryDragDrop();
   document.querySelectorAll('[data-seed]').forEach(b=>b.onclick=()=>{state.selectedSeed=b.dataset.seed;tool='hoe';equipTool();closeModal();toast('Semences sélectionnées : '+ITEMS[state.selectedSeed]);});
   document.querySelectorAll('[data-eat]').forEach(b=>b.onclick=()=>{const id=b.dataset.eat,c=state.team[0];if(spend(state,{[id]:1})){c.hp=Math.min(c.maxHp,c.hp+FOOD[id]);if(id==='grilledFish')c.energy=Math.min(30,c.energy+10);persist();openMenu('bag');}});
   document.querySelectorAll('[data-edit-object]').forEach(b=>b.onclick=()=>{const i=+b.dataset.editObject;if(spaceOf(state.buildings[i])!==(state.location||'world'))return toast('Rejoignez le lieu où cet objet est installé.');furnishingMenu(i);});

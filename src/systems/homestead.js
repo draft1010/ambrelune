@@ -17,7 +17,69 @@ export function stackLimit(id) {
 export function slotsUsed(container = {}) {
   return Object.entries(container).reduce((sum,[id,n]) => sum + (n > 0 ? Math.ceil(n / stackLimit(id)) : 0), 0);
 }
-export function slotStacks(container = {}, capacity = BAG_SLOTS) {
+
+function validStack(stack) {
+  if (!stack || typeof stack.id !== 'string') return null;
+  const count = Math.floor(Number(stack.count) || 0);
+  if (count < 1) return null;
+  return { id: stack.id, count: Math.min(count, stackLimit(stack.id)) };
+}
+
+export function syncSlotLayout(container = {}, layout = [], capacity = BAG_SLOTS) {
+  const requested = {};
+  for (const [id,raw] of Object.entries(container || {})) {
+    const n = Math.max(0, Math.floor(Number(raw) || 0));
+    if (n) requested[id] = n;
+  }
+  const minimum = Math.max(capacity, slotsUsed(container));
+  const size = Math.max(minimum, Array.isArray(layout) ? layout.length : 0);
+  const out = Array(size).fill(null);
+  const remaining = { ...requested };
+
+  if (Array.isArray(layout)) {
+    for (let i = 0; i < Math.min(layout.length, out.length); i++) {
+      const stack = validStack(layout[i]);
+      if (!stack || !remaining[stack.id]) continue;
+      const count = Math.min(stack.count, remaining[stack.id], stackLimit(stack.id));
+      if (!count) continue;
+      out[i] = { id: stack.id, count, limit: stackLimit(stack.id) };
+      remaining[stack.id] -= count;
+    }
+  }
+
+  for (const [id,total] of Object.entries(remaining)) {
+    let left = total;
+    const limit = stackLimit(id);
+    if (!left) continue;
+    for (let i = 0; i < out.length && left > 0; i++) {
+      const stack = out[i];
+      if (!stack || stack.id !== id || stack.count >= limit) continue;
+      const add = Math.min(left, limit - stack.count);
+      stack.count += add;
+      left -= add;
+    }
+    for (let i = 0; i < out.length && left > 0; i++) {
+      if (out[i]) continue;
+      const count = Math.min(left, limit);
+      out[i] = { id, count, limit };
+      left -= count;
+    }
+    while (left > 0) {
+      const count = Math.min(left, limit);
+      out.push({ id, count, limit });
+      left -= count;
+    }
+  }
+
+  if (Array.isArray(layout)) {
+    layout.splice(0, layout.length, ...out.map((stack) => stack ? { id: stack.id, count: stack.count } : null));
+    return layout.map((stack) => stack ? { ...stack, limit: stackLimit(stack.id) } : null);
+  }
+  return out;
+}
+
+export function slotStacks(container = {}, capacity = BAG_SLOTS, layout = null) {
+  if (Array.isArray(layout)) return syncSlotLayout(container, layout, capacity);
   const out = [];
   for (const [id,raw] of Object.entries(container)) {
     let n = Math.max(0, Math.floor(raw || 0));
@@ -26,6 +88,64 @@ export function slotStacks(container = {}, capacity = BAG_SLOTS) {
   }
   while (out.length < capacity) out.push(null);
   return out;
+}
+
+export function syncContainerFromSlots(container = {}, layout = []) {
+  for (const id of Object.keys(container)) delete container[id];
+  for (const raw of layout || []) {
+    const stack = validStack(raw);
+    if (!stack) continue;
+    container[stack.id] = (container[stack.id] || 0) + stack.count;
+  }
+  return container;
+}
+
+function slotContext(s,b,area) {
+  if (area === 'bag') {
+    s.inventorySlots ||= [];
+    syncSlotLayout(s.inventory, s.inventorySlots, BAG_SLOTS);
+    return { container:s.inventory, slots:s.inventorySlots, capacity:BAG_SLOTS };
+  }
+  if (area === 'storage' && ['chest','shelf','wardrobe'].includes(b?.type)) {
+    b.storage ||= {};
+    b.storageSlots ||= [];
+    const capacity=storageCapacity(b.type);
+    syncSlotLayout(b.storage, b.storageSlots, capacity);
+    return { container:b.storage, slots:b.storageSlots, capacity };
+  }
+  return null;
+}
+
+export function moveInventoryStack(s,b,fromArea,fromIndex,toArea,toIndex) {
+  const from=slotContext(s,b,fromArea), to=slotContext(s,b,toArea);
+  if(!from || !to || !Number.isInteger(fromIndex) || !Number.isInteger(toIndex) || fromIndex<0 || toIndex<0 || fromIndex>=from.slots.length || toIndex>=to.slots.length) return false;
+  if(from.container===to.container && fromIndex===toIndex) return false;
+  const source=validStack(from.slots[fromIndex]);
+  if(!source) return false;
+  const target=validStack(to.slots[toIndex]);
+
+  if(!target) {
+    to.slots[toIndex]={id:source.id,count:source.count};
+    from.slots[fromIndex]=null;
+  } else if(target.id===source.id) {
+    const limit=stackLimit(source.id);
+    const room=Math.max(0,limit-target.count);
+    if(!room) return false;
+    const moved=Math.min(room,source.count);
+    to.slots[toIndex]={id:target.id,count:target.count+moved};
+    const left=source.count-moved;
+    from.slots[fromIndex]=left?{id:source.id,count:left}:null;
+  } else {
+    from.slots[fromIndex]={id:target.id,count:target.count};
+    to.slots[toIndex]={id:source.id,count:source.count};
+  }
+
+  if(from.container===to.container) syncContainerFromSlots(from.container,from.slots);
+  else {
+    syncContainerFromSlots(from.container,from.slots);
+    syncContainerFromSlots(to.container,to.slots);
+  }
+  return true;
 }
 export function canStore(container,id,count,capacity=BAG_SLOTS) {
   if (!Number.isFinite(count) || count < 0) return false;
@@ -85,12 +205,18 @@ export function stationAvailable(s,station) {
 export function transfer(s,b,id,count,toChest) {
  if(!['chest','shelf','wardrobe'].includes(b?.type) || !Number.isInteger(count)||count<1) return false;
  b.storage ||= {};
+ s.inventorySlots ||= [];
+ b.storageSlots ||= [];
+ syncSlotLayout(s.inventory,s.inventorySlots,BAG_SLOTS);
+ syncSlotLayout(b.storage,b.storageSlots,storageCapacity(b.type));
  const from=toChest?s.inventory:b.storage, to=toChest?b.storage:s.inventory;
  const capacity=toChest?storageCapacity(b.type):BAG_SLOTS;
  if((from[id]||0)<count || !canStore(to,id,count,capacity)) return false;
  from[id]-=count;
  if(from[id]<=0) delete from[id];
  to[id]=(to[id]||0)+count;
+ syncSlotLayout(s.inventory,s.inventorySlots,BAG_SLOTS);
+ syncSlotLayout(b.storage,b.storageSlots,storageCapacity(b.type));
  return true;
 }
 export function recover(s,index) {

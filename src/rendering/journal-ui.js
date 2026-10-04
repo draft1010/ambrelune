@@ -119,10 +119,11 @@ export function teamView(state) {
     .join("")}</div><div class="menu-footer-action"><div><span class="section-kicker">AIDE AU JARDIN</span><p>${species(state.team[0].id).job || "Ce compagnon veille sur les cultures."}</p></div><button id="helper" class="premium-action">${state.flags.helper ? "Rappeler mon compagnon" : "L’affecter au jardin"}</button></div>`;
 }
 
-function inventorySlot(stack, index, attrs = '') {
-  if (!stack) return `<span class="inventory-slot empty" aria-hidden="true"><i>${index + 1}</i></span>`;
+function inventorySlot(stack, index, area = 'bag', attrs = '') {
+  const base = `data-slot-area="${area}" data-slot-index="${index}"`;
+  if (!stack) return `<span class="inventory-slot empty" ${base} aria-label="Case vide ${index + 1}"><i>${index + 1}</i></span>`;
   const {id,count,limit}=stack;
-  return `<button class="inventory-slot filled" data-inventory-item="${id}" data-inventory-name="${(ITEMS[id]||id).toLocaleLowerCase()}" ${attrs} title="${ITEMS[id]} · ${count}/${limit}">${itemArt(id)}<span class="slot-quantity">${count}</span><small>${ITEMS[id]}</small></button>`;
+  return `<button class="inventory-slot filled" ${base} data-inventory-item="${id}" data-inventory-name="${(ITEMS[id]||id).toLocaleLowerCase()}" ${attrs} title="${ITEMS[id]} · ${count}/${limit}">${itemArt(id)}<span class="slot-quantity">${count}</span><small>${ITEMS[id]}</small></button>`;
 }
 
 function itemAction(id,state) {
@@ -134,20 +135,20 @@ function itemAction(id,state) {
 
 export function bagView(state) {
   const used=slotsUsed(state.inventory);
-  const stacks=slotStacks(state.inventory,Math.max(BAG_SLOTS,used));
+  const stacks=slotStacks(state.inventory,Math.max(BAG_SLOTS,used),state.inventorySlots);
   const unique=[...new Set(stacks.filter(Boolean).map(s=>s.id))];
   const first=unique[0];
   const total=Object.values(state.inventory).reduce((sum,n)=>sum+(n||0),0);
   const details=unique.map((id,i)=>`<article class="inventory-detail" data-inventory-detail="${id}" ${i?'hidden':''}>${figure(id,null,state.inventory[id])}<p class="object-description">${ITEM_META[id]?.[1]||"Ressource conservée pour vos prochaines créations."}</p><div class="inventory-detail-meta"><span>PILE MAX.<b>${stackLimit(id)}</b></span><span>EN SAC<b>${state.inventory[id]||0}</b></span></div>${itemAction(id,state)}</article>`).join('');
-  return `<div class="menu-lead"><div><span class="section-kicker">INVENTAIRE</span><h3>Le sac d’Ambrelune</h3><p>24 cases. Les objets identiques s’empilent jusqu’à leur limite.</p></div><div class="inventory-summary"><div class="${used>BAG_SLOTS?'over-capacity':''}"><small>CASES</small><b>${used} / ${BAG_SLOTS}</b></div><div><small>OBJETS</small><b>${total}</b></div><div><small>AMBRES</small><b>◈ ${state.coins}</b></div></div></div><div class="equipment-strip" aria-label="Outils permanents">${[["hand","Lien"],["axe","Hache"],["pick","Pioche"],["hoe","Cultiver"],["water","Arrosoir"]].map(([id,label])=>`<button data-equip="${id}">${label}</button>`).join("")}</div><label class="inventory-search inventory-slot-search">Rechercher <input id="inventorySearch" type="search" placeholder="Bois, graines, mobilier…"></label><div class="inventory-layout"><div><div class="inventory-slot-grid bag-slots">${stacks.map((st,i)=>inventorySlot(st,i)).join('')}</div>${used>BAG_SLOTS?'<p class="inventory-warning">Sac en surcapacité : déposez des objets dans un coffre avant de pouvoir en ramasser davantage.</p>':''}</div><aside class="inventory-detail-panel">${details||'<div class="empty premium-empty"><b>Votre sac est vide.</b><span>Explorez Ambrelune pour trouver vos premières ressources.</span></div>'}</aside></div>`;
+  return `<div class="menu-lead"><div><span class="section-kicker">INVENTAIRE</span><h3>Le sac d’Ambrelune</h3><p>24 cases. Les objets identiques s’empilent jusqu’à leur limite.</p></div><div class="inventory-summary"><div class="${used>BAG_SLOTS?'over-capacity':''}"><small>CASES</small><b>${used} / ${BAG_SLOTS}</b></div><div><small>OBJETS</small><b>${total}</b></div><div><small>AMBRES</small><b>◈ ${state.coins}</b></div></div></div><div class="equipment-strip" aria-label="Outils permanents">${[["hand","Lien"],["axe","Hache"],["pick","Pioche"],["hoe","Cultiver"],["water","Arrosoir"]].map(([id,label])=>`<button data-equip="${id}">${label}</button>`).join("")}</div><label class="inventory-search inventory-slot-search">Rechercher <input id="inventorySearch" type="search" placeholder="Bois, graines, mobilier…"></label><div class="inventory-layout"><div><div class="inventory-slot-grid bag-slots">${stacks.map((st,i)=>inventorySlot(st,i,'bag')).join('')}</div>${used>BAG_SLOTS?'<p class="inventory-warning">Sac en surcapacité : déposez des objets dans un coffre avant de pouvoir en ramasser davantage.</p>':''}</div><aside class="inventory-detail-panel">${details||'<div class="empty premium-empty"><b>Votre sac est vide.</b><span>Explorez Ambrelune pour trouver vos premières ressources.</span></div>'}</aside></div>`;
 }
 
 export function storageView(state,b) {
   const cap=storageCapacity(b.type);
   const bagUsed=slotsUsed(state.inventory), storageUsed=slotsUsed(b.storage||{});
-  const bagStacks=slotStacks(state.inventory,Math.max(BAG_SLOTS,bagUsed));
-  const chestStacks=slotStacks(b.storage||{},Math.max(cap,storageUsed));
-  return `<div class="storage-inventory"><p class="storage-help">Touchez une case pour transférer <b>1 objet</b>. Les piles se regroupent automatiquement.</p><div class="storage-columns"><section class="storage-panel"><header><h3>Votre sac</h3><span class="${bagUsed>BAG_SLOTS?'over-capacity':''}">${bagUsed}/${BAG_SLOTS} cases</span></header><div class="inventory-slot-grid storage-slots">${bagStacks.map((st,i)=>inventorySlot(st,i,st?`data-store="${st.id}"`:'')).join('')}</div></section><section class="storage-panel"><header><h3>${ITEMS[b.type]||'Rangement'}</h3><span class="${storageUsed>cap?'over-capacity':''}">${storageUsed}/${cap} cases</span></header><div class="inventory-slot-grid storage-slots">${chestStacks.map((st,i)=>inventorySlot(st,i,st?`data-take="${st.id}"`:'')).join('')}</div></section></div></div>`;
+  const bagStacks=slotStacks(state.inventory,Math.max(BAG_SLOTS,bagUsed),state.inventorySlots);
+  const chestStacks=slotStacks(b.storage||{},Math.max(cap,storageUsed),b.storageSlots);
+  return `<div class="storage-inventory"><p class="storage-help"><b>Clic / toucher :</b> transfère 1 objet. <b>Glisser-déposer :</b> déplace toute la pile. Déposez une pile sur une autre pour les fusionner ou les permuter.</p><div class="storage-columns"><section class="storage-panel"><header><h3>Votre sac</h3><span class="${bagUsed>BAG_SLOTS?'over-capacity':''}">${bagUsed}/${BAG_SLOTS} cases</span></header><div class="inventory-slot-grid storage-slots">${bagStacks.map((st,i)=>inventorySlot(st,i,'bag',st?`data-store="${st.id}"`:'')).join('')}</div></section><section class="storage-panel"><header><h3>${ITEMS[b.type]||'Rangement'}</h3><span class="${storageUsed>cap?'over-capacity':''}">${storageUsed}/${cap} cases</span></header><div class="inventory-slot-grid storage-slots">${chestStacks.map((st,i)=>inventorySlot(st,i,'storage',st?`data-take="${st.id}"`:'')).join('')}</div></section></div></div>`;
 }
 
 export function craftView(state, canAfford, available=(s,id)=>s.inventory[id]||0, outputFits=()=>true) {
