@@ -43,9 +43,24 @@ export class Input {
       this.running = false;
     });
     canvas.addEventListener("contextmenu", (e) => e.preventDefault());
+    const touches = new Map();
+    let pinchDistance = 0;
+    const distance = () => { const [a,b] = [...touches.values()]; return Math.hypot(a.x-b.x,a.y-b.y); };
+    const clearTouches = () => { touches.clear(); pinchDistance = 0; };
+    window.addEventListener("blur", clearTouches);
+    canvas.style.touchAction = "none";
     let holdTimer=null, origin=null, held=false;
     canvas.addEventListener("dblclick",e=>{this.target=null;this.route=[];this.onObject?.(e.clientX,e.clientY);});
     canvas.addEventListener("pointerdown", (e) => {
+      if (e.pointerType === "touch") {
+        e.preventDefault(); onStart(); canvas.focus();
+        this.target = null; this.route = [];
+        touches.set(e.pointerId,{x:e.clientX,y:e.clientY,startX:e.clientX,startY:e.clientY,moved:false,multi:false,time:Date.now(),camera:e.clientX >= canvas.getBoundingClientRect().left + canvas.clientWidth/2});
+        canvas.setPointerCapture(e.pointerId);
+        if (touches.size > 1) { for (const point of touches.values()) point.multi = true; }
+        if (touches.size === 2) pinchDistance = distance();
+        return;
+      }
       origin={x:e.clientX,y:e.clientY};held=false;
       clearTimeout(holdTimer);
       if(e.button===0)holdTimer=setTimeout(()=>{if(this.drag&&!this.pointerMoved){held=!!this.onObject?.(e.clientX,e.clientY);this.target=null;}},550);
@@ -61,7 +76,21 @@ export class Input {
       canvas.setPointerCapture(e.pointerId);
     });
     canvas.addEventListener("pointermove", (e) => {
-      if (this.drag) {
+      if (e.pointerType === "touch") {
+        const point = touches.get(e.pointerId);
+        if (!point) return;
+        e.preventDefault();
+        if (Math.hypot(e.clientX-point.startX,e.clientY-point.startY)>8) point.moved=true;
+        const dx = e.clientX - point.x;
+        point.x = e.clientX; point.y = e.clientY;
+        if (touches.size === 2) {
+          const next = distance();
+          if (pinchDistance > 0 && next > 0) this.zoom = Math.max(21,Math.min(55,this.zoom * pinchDistance / next));
+          pinchDistance = next;
+        } else if (touches.size === 1 && point.camera) this.angle -= dx * 0.008;
+        return;
+      }
+      if (this.drag && this.drag.id === e.pointerId) {
         if (Math.hypot(e.clientX - origin.x, e.clientY - origin.y) > 8)
           this.pointerMoved = true;
         if (this.drag.right) this.angle -= (e.clientX - this.drag.x) * 0.008;
@@ -70,12 +99,19 @@ export class Input {
       }
     });
     canvas.addEventListener("pointerup", (e) => {
+      if (e.pointerType === "touch") {
+        const point = touches.get(e.pointerId);
+        touches.delete(e.pointerId); pinchDistance = touches.size === 2 ? distance() : 0;
+        if (point && !point.moved && !point.multi && Date.now()-point.time<500 && Math.hypot(e.clientX-point.startX,e.clientY-point.startY)<=8 && this.enabled) this.onGround?.(e.clientX,e.clientY);
+        return;
+      }
       clearTimeout(holdTimer);
       if (this.drag && !held && !this.drag.right && !this.pointerMoved && this.enabled)
         this.onGround?.(e.clientX, e.clientY);
       this.drag = null;
     });
-    canvas.addEventListener("pointercancel",()=>{clearTimeout(holdTimer);this.drag=null;});
+    canvas.addEventListener("pointercancel",e=>{touches.delete(e.pointerId);pinchDistance=0;clearTimeout(holdTimer);this.drag=null;});
+    canvas.addEventListener("lostpointercapture",e=>{touches.delete(e.pointerId);pinchDistance=0;});
     canvas.addEventListener(
       "wheel",
       (e) => {
@@ -115,22 +151,6 @@ export class Input {
     };
     joy.addEventListener("pointerup", reset);
     joy.addEventListener("pointercancel", reset);
-    const pad = document.getElementById("cameraPad");
-    let cameraId = null,
-      last = 0;
-    pad.addEventListener("pointerdown", (e) => {
-      cameraId = e.pointerId;
-      last = e.clientX;
-      pad.setPointerCapture(cameraId);
-    });
-    pad.addEventListener("pointermove", (e) => {
-      if (cameraId === e.pointerId) {
-        this.angle -= (e.clientX - last) * 0.012;
-        last = e.clientX;
-      }
-    });
-    pad.addEventListener("pointerup", () => (cameraId = null));
-    pad.addEventListener("pointercancel", () => (cameraId = null));
     const run = document.getElementById("runBtn");
     run.addEventListener("pointerdown", (e) => {
       run.setPointerCapture(e.pointerId);
