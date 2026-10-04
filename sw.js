@@ -1,4 +1,4 @@
-const CACHE = "ambrelune-v17-mobile-startup";
+const CACHE = "ambrelune-v18-run-toggle";
 const FILES = [
  "./src/systems/encounters.js",
  "./src/rendering/fountain.js",
