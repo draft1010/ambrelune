@@ -154,10 +154,14 @@ export class Input {
     const run = document.getElementById("runBtn");
     this.runButton = run;
     this.running = this.running;
-    run.addEventListener("click", () => {
-      onStart();
-      this.running = !this.running;
+    const toggleRun = () => { onStart(); this.running = !this.running; };
+    run.addEventListener("pointerdown", e => {
+      if (e.pointerType === "mouse" && e.button !== 0) return;
+      e.preventDefault();
+      toggleRun();
     });
+    // Keyboard activation still works; physical taps are handled on pointerdown.
+    run.addEventListener("click", e => { if (e.detail === 0) toggleRun(); });
   }
   get running() { return this._running || false; }
   set running(value) {
