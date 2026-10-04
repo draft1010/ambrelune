@@ -4493,3 +4493,25 @@ body.inventory-dragging{overscroll-behavior:none}
     -webkit-tap-highlight-color:transparent;
   }
 }
+
+
+/* ===== V33 · Fermeture Sac Android infaillible ===== */
+@media (pointer:coarse) {
+  #modal .paper.journal-paper.inventory-paper #closeModal {
+    position:fixed !important;
+    top:calc(6px + env(safe-area-inset-top)) !important;
+    right:calc(6px + env(safe-area-inset-right)) !important;
+    width:52px !important;
+    height:52px !important;
+    min-width:52px !important;
+    min-height:52px !important;
+    margin:0 !important;
+    padding:0 !important;
+    display:grid !important;
+    place-items:center !important;
+    z-index:2147483647 !important;
+    pointer-events:auto !important;
+    touch-action:none !important;
+    isolation:isolate;
+  }
+}

@@ -556,16 +556,35 @@ $("continueBtn").onclick = () => {
   const s = load();
   if (s) begin(s);
 };
-$("closeModal").onclick = closeModal;
-// Android/coarse pointer fallback: some browsers can suppress the synthetic click
-// inside the fullscreen inventory after touch-action changes. Pointer-up closes it
-// directly without affecting mouse/desktop behaviour.
-$("closeModal").addEventListener("pointerup", (event) => {
-  if (event.pointerType !== "touch") return;
+const closeModalButton = $("closeModal");
+closeModalButton.onclick = closeModal;
+
+// Android: in the fullscreen bag, touch-action:none on the journal can make the
+// browser cancel the pointer before pointerup/click. Close on pointerdown in the
+// capture phase instead, before the inventory drag handlers can see the gesture.
+const forceTouchModalClose = (event) => {
+  if (event.pointerType && event.pointerType !== "touch" && event.pointerType !== "pen") return;
+  event.preventDefault();
+  event.stopPropagation();
+  event.stopImmediatePropagation?.();
+  closeModal();
+};
+closeModalButton.addEventListener("pointerdown", forceTouchModalClose, { capture: true, passive: false });
+
+// Older Android WebViews may emit touch events without a usable PointerEvent.
+closeModalButton.addEventListener("touchstart", (event) => {
   event.preventDefault();
   event.stopPropagation();
   closeModal();
-});
+}, { capture: true, passive: false });
+
+// Last-resort delegated capture: if the button is tapped while another handler
+// is rebuilding the bag, close it before that handler can cancel the gesture.
+document.addEventListener("pointerdown", (event) => {
+  if (!event.target?.closest?.("#closeModal")) return;
+  if (event.pointerType !== "touch" && event.pointerType !== "pen") return;
+  forceTouchModalClose(event);
+}, true);
 $("menuBtn").onclick = () => openMenu();
 $("mapBtn").onclick = () => openMenu("map");
 $("actBtn").onclick = interact;
