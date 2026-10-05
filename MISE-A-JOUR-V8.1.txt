@@ -1,8 +1,0 @@
-AMBRELUNE V8.1 — PERSONNAGE JOUEUR UNIQUE
-
-- Le héros utilise désormais une variante Ranger exclusive (couleur officielle alternative du pack Quaternius).
-- Aucun PNJ masculin n’utilise plus la tenue Ranger du héros.
-- Noé a été changé en tenue paysanne alternative.
-- Plusieurs PNJ utilisent les variantes de couleurs Peasant/Ranger incluses dans le pack d’origine.
-- Maëlle reste bien un personnage féminin distinct.
-- Cache PWA renouvelé pour forcer la mise à jour des apparences.
