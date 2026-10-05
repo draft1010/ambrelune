@@ -1,6 +1,0 @@
-AMBRELUNE V8.2 — CORRECTION ANIMATIONS DE DEPLACEMENT
-
-- Marche : Walk_Loop (Quaternius Universal Animation Library).
-- Course : Sprint_Loop (Quaternius Universal Animation Library).
-- Correction PC : la touche Maj déclenche maintenant aussi l’animation de sprint, pas seulement l’augmentation de vitesse.
-- Le bouton Courir tactile continue d’utiliser Sprint_Loop.
