@@ -262,7 +262,7 @@ async function getAnimations() {
 
 const VARIANTS = {
   // The hero has a reserved outfit/colour combination. No NPC reuses it.
-  player: { gender: "male", unified: "new/hero/Hero_Adventurer.gltf", idle: "Idle_Loop" },
+  player: { gender: "male", outfit: "Male_Ranger_Player", hair: "Hair_SimpleParted", idle: "Idle_Loop" },
   maelle: { gender: "female", outfit: "Female_Peasant", hair: "Hair_Buns", idle: "Idle_FoldArms_Loop" },
   soline: { gender: "female", outfit: "Female_Peasant_Alt", hair: "Hair_Long", idle: "Idle_Loop" },
   ivo: { gender: "male", outfit: "Male_Peasant", hair: "Hair_SimpleParted", idle: "Idle_FoldArms_Loop" },
@@ -274,7 +274,6 @@ const VARIANTS = {
 };
 
 function pathsFor(v) {
-  if (v.unified) return [`${ROOT}${v.unified}`];
   return [
     `${ROOT}base/Superhero_${v.gender === "female" ? "Female" : "Male"}_FullBody.gltf`,
     `${ROOT}outfits/${v.outfit}.gltf`,
@@ -371,16 +370,12 @@ export function character(kind = "player", fallbackColor = "#698895") {
   };
 
   const readyPromise = Promise.all([getAnimations(), ...pathsFor(v).map(instantiateGltf)])
-    .then(([clips, ...loaded]) => {
+    .then(([clips, base, outfit, hair]) => {
       state.clips = clips;
-      const base = loaded[0];
-      const outfit = v.unified ? null : loaded[1];
-      const hair = v.unified ? null : loaded[2];
-      const layers = v.unified ? [base] : [base, outfit, hair];
+      const layers = [base, outfit, hair];
       const visual = new T.Group();
       visual.name = `${kind}_visual`;
       for (const layer of layers) {
-        if (!layer) continue;
         layer.traverse((o) => {
           if (o.isMesh || o.isSkinnedMesh) {
             o.castShadow = true;
@@ -397,23 +392,21 @@ export function character(kind = "player", fallbackColor = "#698895") {
       group.add(visual);
       group.remove(fallback);
 
-      // Legacy characters are assembled from body + outfit + hair and therefore need
-      // their visual layers rebound to the base skeleton. The new lightweight hero is
-      // already a single skinned asset, so no rebind (and no extra skinned layer) is needed.
+      // Rebind clothing and hair to the base character skeleton. This keeps all three
+      // visual layers perfectly synchronized while requiring only one AnimationMixer
+      // per character — important for smartphone performance.
       const baseBones = new Map();
       base.traverse((o) => { if (o.isBone && o.name) baseBones.set(o.name, o); });
-      if (!v.unified) {
-        for (const layer of [outfit, hair]) {
-          layer.traverse((o) => {
-            if (!o.isSkinnedMesh || !o.skeleton) return;
-            const mapped = o.skeleton.bones.map((b) => baseBones.get(b.name));
-            if (mapped.every(Boolean)) {
-              const inverses = o.skeleton.boneInverses.map((m) => m.clone());
-              const skeleton = new T.Skeleton(mapped, inverses);
-              o.bind(skeleton, o.bindMatrix.clone());
-            }
-          });
-        }
+      for (const layer of [outfit, hair]) {
+        layer.traverse((o) => {
+          if (!o.isSkinnedMesh || !o.skeleton) return;
+          const mapped = o.skeleton.bones.map((b) => baseBones.get(b.name));
+          if (mapped.every(Boolean)) {
+            const inverses = o.skeleton.boneInverses.map((m) => m.clone());
+            const skeleton = new T.Skeleton(mapped, inverses);
+            o.bind(skeleton, o.bindMatrix.clone());
+          }
+        });
       }
       state.layers = layers;
       state.mixers = [new T.AnimationMixer(base)];
