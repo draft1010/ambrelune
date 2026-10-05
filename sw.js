@@ -1,4 +1,4 @@
-const CACHE = "ambrelune-v35-real-mobile-bag-close-fix";
+const CACHE = "ambrelune-v36-character-prototype";
 const FILES = [
   "./src/systems/encounters.js",
   "./src/rendering/fountain.js",
@@ -62,7 +62,6 @@ const FILES = [
   "./assets/characters/outfits/Male_Peasant.gltf",
   "./assets/characters/outfits/Male_Peasant_Alt.gltf",
   "./assets/characters/outfits/Male_Ranger.gltf",
-  "./assets/characters/outfits/Male_Ranger_Player.gltf",
   "./assets/characters/base/Superhero_Female_FullBody.bin",
   "./assets/characters/base/Superhero_Male_FullBody.bin",
   "./assets/characters/hair/Hair_Beard.bin",
@@ -107,6 +106,9 @@ const FILES = [
   "./assets/characters/outfits/T_Regular_Male_Roughness.png",
   "./assets/characters/animations/UAL1_Standard.glb",
   "./assets/characters/animations/UAL2_Standard.glb",
+  "./assets/characters/new/hero/Hero_Adventurer.gltf",
+  "./assets/characters/new/hero/Hero_Adventurer.bin",
+  "./assets/characters/new/hero/Hero_Adventurer_Palette.png",
   "./assets/terrain/grass_albedo.png",
   "./assets/terrain/grass_detail.png",
   "./assets/terrain/grass_normal.png",
